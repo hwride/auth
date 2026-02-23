@@ -1,5 +1,11 @@
-// Import the framework and instantiate it
 import Fastify from "fastify";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import view from "@fastify/view";
+import ejs from "ejs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 main();
 
@@ -12,9 +18,18 @@ async function initServer() {
   const fastify = Fastify({
     logger: true,
   });
-  fastify.get("/", async function handler(request, reply) {
-    return { hello: "world" };
+
+  await fastify.register(view, {
+    engine: {
+      ejs,
+    },
+    root: path.join(__dirname, "templates"),
   });
+
+  fastify.get("/", async function handler(request, reply) {
+    return reply.view("index.ejs", { message: "Hello world" });
+  });
+
   try {
     await fastify.listen({ port: 3000 });
     return fastify;
