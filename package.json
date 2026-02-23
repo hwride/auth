@@ -1,0 +1,14 @@
+{
+  "name": "auth-testing",
+  "type": "module",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "node --watch oauth/client.ts",
+    "types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3"
+  }
+}
