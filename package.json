@@ -10,5 +10,8 @@
     "@types/node": "^25.3.0",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "fastify": "^5.7.4"
   }
 }
