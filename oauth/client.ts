@@ -43,19 +43,29 @@ async function initServer() {
   let state: string | undefined;
   const redirectUri = "http://localhost:3000/callback";
 
-  // Authorization Code Grant, Authorization Request - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.1
-  fastify.get("/authorize", async function (request, reply) {
+  // OAuth, Authorization Code Grant, Authorization Request - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.1
+  // OIDC, Authorization Code Flow, Authentication Request - https://openid.net/specs/openid-connect-core-1_0-final.html#AuthRequest
+  fastify.get<{
+    Querystring: {
+      variant?: string;
+    };
+  }>("/authorize", async function (request, reply) {
     const authServerBase = process.env.AUTH_SERVER_BASE;
     const clientId = process.env.CLIENT_ID;
+    const { variant } = request.query;
 
     const authorizeUrl = new URL("/authorize", authServerBase);
     state = randomUUID();
-    authorizeUrl.search = new URLSearchParams({
+    const authorizeQueryParams: Record<string, string> = {
       response_type: "code",
       client_id: clientId,
       redirect_uri: redirectUri,
       state,
-    }).toString();
+    };
+    if (variant === "oidc") {
+      authorizeQueryParams.scope = "openid";
+    }
+    authorizeUrl.search = new URLSearchParams(authorizeQueryParams).toString();
 
     fastify.log.info(
       {
@@ -67,7 +77,8 @@ async function initServer() {
     return reply.redirect(authorizeUrl.toString());
   });
 
-  // Authorization Code Grant, Authorization Response - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2
+  // OAuth, Authorization Code Grant, Authorization Response - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2
+  // OIDC, Authorization Code Grant, Successful Authentication Response - https://openid.net/specs/openid-connect-core-1_0-final.html#AuthResponse
   fastify.get<{
     Querystring: {
       code?: string;
@@ -112,9 +123,9 @@ async function initServer() {
       },
       body: tokenRequestBody.toString(),
     });
-    const tokenResponseBody = await tokenResponse.text();
 
     if (!tokenResponse.ok) {
+      const tokenResponseBody = await tokenResponse.text();
       fastify.log.error(
         { status: tokenResponse.status, body: tokenResponseBody },
         "/callback - Access Token Request failed",
@@ -122,6 +133,7 @@ async function initServer() {
       return reply.code(502).send("Token request failed");
     }
 
+    const tokenResponseBody = await tokenResponse.json();
     fastify.log.info(
       { status: tokenResponse.status, body: tokenResponseBody },
       "/callback - Access Token Response",
