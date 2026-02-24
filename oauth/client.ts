@@ -27,13 +27,14 @@ async function initServer() {
     root: path.join(__dirname, "templates"),
   });
 
-  fastify.get("/", async function handler(request, reply) {
+  fastify.get("/", async function (request, reply) {
     return reply.view("index.ejs");
   });
 
   let state: string | undefined;
 
-  fastify.get("/authorize", async function authorizeHandler(request, reply) {
+  // Authorization Code Grant, Authorization Request - https://datatracker.ietf.org/doc/html/rfc6749#autoid-36
+  fastify.get("/authorize", async function (request, reply) {
     const authServerBase = process.env.AUTH_SERVER_BASE;
     const clientId = process.env.CLIENT_ID;
 
@@ -48,6 +49,18 @@ async function initServer() {
 
     fastify.log.info(`Redirecting to Authorization URL ${authorizeUrl}...`);
     return reply.redirect(authorizeUrl.toString());
+  });
+
+  // Authorization Code Grant, Authorization Response - https://datatracker.ietf.org/doc/html/rfc6749#autoid-37
+  fastify.get<{
+    Querystring: {
+      code?: string;
+      state?: string;
+    };
+  }>("/callback", async function (request, reply) {
+    const query = request.query;
+    fastify.log.info({ query }, "Received callback query params");
+    return reply.code(200).send("Callback received");
   });
 
   try {
