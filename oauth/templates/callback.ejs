@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Callback</title>
+    <style>
+      pre {
+        max-width: 100%;
+        overflow-x: auto;
+        box-sizing: border-box;
+      }
+    </style>
+  </head>
+  <body>
+    <h1><%= callbackTitle %></h1>
+    <a href="/">Back to home</a>
+
+    <% if (errorMessage) { %>
+    <p><%= errorMessage %></p>
+    <% if (tokenResponseJson) { %>
+    <h2>Error response body</h2>
+    <pre><%= tokenResponseJson %></pre>
+    <% } %>
+
+    <% } else { %>
+    <% if (tokenResponseJson) { %>
+    <h2>Token response</h2>
+    <pre><%= tokenResponseJson %></pre>
+    <% } %>
+    <% if (idTokenClaimsJson) { %>
+    <h2>ID token contents</h2>
+    <pre><%= idTokenClaimsJson %></pre>
+    <% } else { %>
+    <p>No ID token present.</p>
+    <% } %>
+    <% } %>
+  </body>
+</html>

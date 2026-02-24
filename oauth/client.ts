@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import view from "@fastify/view";
 import ejs from "ejs";
 import { randomUUID } from "node:crypto";
+import { decodeJwtPayload } from "./utils/jwt-utils.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,11 +95,21 @@ async function initServer() {
     const clientSecret = process.env.CLIENT_SECRET;
 
     if (!query.code) {
-      return reply.code(400).send("Missing code");
+      return reply.code(400).view("callback.ejs", {
+        callbackTitle: "Callback failed",
+        errorMessage: "Missing code",
+        tokenResponseJson: undefined,
+        idTokenClaimsJson: undefined,
+      });
     }
 
     if (!query.state || query.state !== state) {
-      return reply.code(400).send("Invalid state");
+      return reply.code(400).view("callback.ejs", {
+        callbackTitle: "Callback failed",
+        errorMessage: "Invalid state",
+        tokenResponseJson: undefined,
+        idTokenClaimsJson: undefined,
+      });
     }
 
     const tokenUrl = new URL("/oauth/token", authServerBase);
@@ -126,20 +137,56 @@ async function initServer() {
 
     if (!tokenResponse.ok) {
       const tokenResponseBody = await tokenResponse.text();
+      let formattedErrorResponseBody = tokenResponseBody;
+      try {
+        formattedErrorResponseBody = JSON.stringify(
+          JSON.parse(tokenResponseBody),
+          null,
+          2,
+        );
+      } catch {
+        // Keep raw body when response is not JSON.
+      }
       fastify.log.error(
         { status: tokenResponse.status, body: tokenResponseBody },
         "/callback - Access Token Request failed",
       );
-      return reply.code(502).send("Token request failed");
+      return reply.code(502).view("callback.ejs", {
+        callbackTitle: "Callback failed",
+        errorMessage: "Token request failed",
+        tokenResponseJson: formattedErrorResponseBody,
+        idTokenClaimsJson: undefined,
+      });
     }
 
-    const tokenResponseBody = await tokenResponse.json();
+    const tokenResponseBody = (await tokenResponse.json()) as Record<
+      string,
+      unknown
+    >;
+    const idTokenClaims =
+      typeof tokenResponseBody.id_token === "string"
+        ? decodeJwtPayload(tokenResponseBody.id_token)
+        : undefined;
+    const tokenResponseForDisplay = {
+      ...tokenResponseBody,
+      ...(tokenResponseBody.access_token
+        ? { access_token: "<present-but-redacted>" }
+        : {}),
+    };
+
     fastify.log.info(
       { status: tokenResponse.status, body: tokenResponseBody },
       "/callback - Access Token Response",
     );
 
-    return reply.code(200).send("Callback received");
+    return reply.view("callback.ejs", {
+      callbackTitle: "Callback success",
+      errorMessage: undefined,
+      tokenResponseJson: JSON.stringify(tokenResponseForDisplay, null, 2),
+      idTokenClaimsJson: idTokenClaims
+        ? JSON.stringify(idTokenClaims, null, 2)
+        : undefined,
+    });
   });
 
   try {
