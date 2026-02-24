@@ -26,6 +26,7 @@ async function initServer() {
         },
       },
     },
+    disableRequestLogging: true,
   });
 
   await fastify.register(view, {
@@ -55,7 +56,13 @@ async function initServer() {
       state,
     }).toString();
 
-    fastify.log.info(`Redirecting to Authorization URL ${authorizeUrl}...`);
+    fastify.log.info(
+      {
+        authorizeUrl,
+        ...Object.fromEntries(authorizeUrl.searchParams.entries()),
+      },
+      "/authorize - Authorization Request - redirecting to Authorization URL...",
+    );
     return reply.redirect(authorizeUrl.toString());
   });
 
@@ -67,7 +74,7 @@ async function initServer() {
     };
   }>("/callback", async function (request, reply) {
     const query = request.query;
-    fastify.log.info({ query }, "Received callback query params");
+    fastify.log.info({ query }, "/callback - Authorization Response");
     return reply.code(200).send("Callback received");
   });
 
