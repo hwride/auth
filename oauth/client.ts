@@ -17,7 +17,15 @@ async function main() {
 
 async function initServer() {
   const fastify = Fastify({
-    logger: true,
+    logger: {
+      transport: {
+        target: "pino-pretty",
+        options: {
+          translateTime: "HH:MM:ss Z",
+          ignore: "pid,hostname",
+        },
+      },
+    },
   });
 
   await fastify.register(view, {
