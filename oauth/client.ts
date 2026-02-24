@@ -48,12 +48,12 @@ async function initServer() {
   // OIDC, Authorization Code Flow, Authentication Request - https://openid.net/specs/openid-connect-core-1_0-final.html#AuthRequest
   fastify.get<{
     Querystring: {
-      variant?: string;
+      scope?: string;
     };
   }>("/authorize", async function (request, reply) {
     const authServerBase = process.env.AUTH_SERVER_BASE;
     const clientId = process.env.CLIENT_ID;
-    const { variant } = request.query;
+    const { scope } = request.query;
 
     const authorizeUrl = new URL("/authorize", authServerBase);
     state = randomUUID();
@@ -63,8 +63,8 @@ async function initServer() {
       redirect_uri: redirectUri,
       state,
     };
-    if (variant === "oidc") {
-      authorizeQueryParams.scope = "openid";
+    if (scope) {
+      authorizeQueryParams.scope = scope.trim();
     }
     authorizeUrl.search = new URLSearchParams(authorizeQueryParams).toString();
 

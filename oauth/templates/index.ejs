@@ -4,12 +4,59 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OAuth Client</title>
+    <style>
+      #authorize-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: flex-start;
+      }
+
+      #authorize-controls fieldset {
+        width: fit-content;
+      }
+    </style>
   </head>
   <body>
     <h1>OAuth Client</h1>
-    <ul>
-      <li><a href="/authorize">Authorize with OAuth</a></li>
-      <li><a href="/authorize?variant=oidc">Login with OpenID Connect</a></li>
-    </ul>
+    <div id="authorize-controls">
+      <fieldset>
+        <legend>Scopes</legend>
+        <label>
+          <input type="checkbox" value="openid" class="scope-checkbox" />
+          openid
+        </label>
+        <label>
+          <input type="checkbox" value="email" class="scope-checkbox" />
+          email
+        </label>
+        <label>
+          <input type="checkbox" value="profile" class="scope-checkbox" />
+          profile
+        </label>
+      </fieldset>
+      <a id="authorize-link" href="/authorize">Authorize</a>
+    </div>
+    <script>
+      var checkboxes = Array.from(document.querySelectorAll(".scope-checkbox"));
+      var authorizeLink = document.getElementById("authorize-link");
+
+      function updateAuthorizeLink() {
+        var selectedScopes = checkboxes
+          .filter((el) => el.checked)
+          .map((el) => el.value)
+          .join(" ");
+        var href = "/authorize";
+        if (selectedScopes) {
+          href += "?" + new URLSearchParams({ scope: selectedScopes }).toString();
+        }
+        authorizeLink.setAttribute("href", href);
+      }
+
+      checkboxes.forEach(function (el) {
+        el.addEventListener("change", updateAuthorizeLink);
+      });
+      updateAuthorizeLink();
+    </script>
   </body>
 </html>
