@@ -35,7 +35,7 @@ export function registerAuthorizeRoute(
     }
 
     if (use_nonce === "true") {
-      // https:openid.net/specs/openid-connect-core-1_0-final.html#IDToken
+      // OIDC, ID token - https:openid.net/specs/openid-connect-core-1_0-final.html#IDToken
       authFlowContext.nonce = randomUUID();
       authorizeQueryParams.nonce = authFlowContext.nonce;
     } else {

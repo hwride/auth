@@ -17,11 +17,6 @@ export function registerCallbackRoute(
     const query = request.query;
     fastify.log.info({ query }, "/callback - Authorization Response");
 
-    // Access Token Request - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3
-    const authServerBase = process.env.AUTH_SERVER_BASE;
-    const clientId = process.env.CLIENT_ID;
-    const clientSecret = process.env.CLIENT_SECRET;
-
     if (!query.code) {
       return reply.code(400).view("callback.ejs", {
         callbackTitle: "Callback failed",
@@ -43,6 +38,10 @@ export function registerCallbackRoute(
       });
     }
 
+    // OAuth, Access Token Request - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3
+    const authServerBase = process.env.AUTH_SERVER_BASE;
+    const clientId = process.env.CLIENT_ID;
+    const clientSecret = process.env.CLIENT_SECRET;
     const tokenUrl = new URL("/oauth/token", authServerBase);
     const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString(
       "base64",
@@ -93,10 +92,13 @@ export function registerCallbackRoute(
       });
     }
 
+    // OAuth, Access Token Response - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.4
+    // OIDC, Token Response Validation - https://openid.net/specs/openid-connect-core-1_0-final.html#TokenResponseValidation
     const tokenResponseBody = (await tokenResponse.json()) as Record<
       string,
       unknown
     >;
+
     const idTokenClaims: any =
       typeof tokenResponseBody.id_token === "string"
         ? decodeJwtPayload(tokenResponseBody.id_token)
