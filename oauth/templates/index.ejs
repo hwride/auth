@@ -40,6 +40,10 @@
         Use state?
       </label>
       <label>
+        <input type="checkbox" id="nonce-checkbox" />
+        Use nonce?
+      </label>
+      <label>
         <input type="checkbox" id="pkce-checkbox" />
         Use Proof Key for Code Exchange (PKCE)?
       </label>
@@ -50,6 +54,7 @@
         document.querySelectorAll(".scope-checkbox"),
       );
       const stateCheckbox = document.getElementById("state-checkbox");
+      const nonceCheckbox = document.getElementById("nonce-checkbox");
       const pkceCheckbox = document.getElementById("pkce-checkbox");
       const authorizeLink = document.getElementById("authorize-link");
 
@@ -61,6 +66,9 @@
         const queryParams = new URLSearchParams();
         if (stateCheckbox.checked) {
           queryParams.set("use_state", "true");
+        }
+        if (nonceCheckbox.checked) {
+          queryParams.set("use_nonce", "true");
         }
         if (pkceCheckbox.checked) {
           queryParams.set("use_pkce", "true");
@@ -79,6 +87,7 @@
         el.addEventListener("change", updateAuthorizeLink);
       });
       pkceCheckbox.addEventListener("change", updateAuthorizeLink);
+      nonceCheckbox.addEventListener("change", updateAuthorizeLink);
       stateCheckbox.addEventListener("change", updateAuthorizeLink);
       updateAuthorizeLink();
     </script>

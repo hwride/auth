@@ -42,6 +42,7 @@ async function initServer() {
   });
 
   let state: string | undefined;
+  let nonce: string | undefined;
   let codeVerifier: string | undefined;
   const redirectUri = "http://localhost:3000/callback";
 
@@ -52,11 +53,12 @@ async function initServer() {
       scope?: string;
       use_pkce?: "true" | "false";
       use_state?: "true" | "false";
+      use_nonce?: "true" | "false";
     };
   }>("/authorize", async function (request, reply) {
     const authServerBase = process.env.AUTH_SERVER_BASE;
     const clientId = process.env.CLIENT_ID;
-    const { scope, use_pkce, use_state } = request.query;
+    const { scope, use_pkce, use_state, use_nonce } = request.query;
 
     const authorizeUrl = new URL("/authorize", authServerBase);
     const authorizeQueryParams: Record<string, string> = {
@@ -70,6 +72,14 @@ async function initServer() {
       authorizeQueryParams.state = state;
     } else {
       state = undefined;
+    }
+
+    if (use_nonce === "true") {
+      // https:openid.net/specs/openid-connect-core-1_0-final.html#IDToken
+      nonce = randomUUID();
+      authorizeQueryParams.nonce = nonce;
+    } else {
+      nonce = undefined;
     }
 
     if (use_pkce === "true") {
@@ -188,10 +198,24 @@ async function initServer() {
       string,
       unknown
     >;
-    const idTokenClaims =
+    const idTokenClaims: any =
       typeof tokenResponseBody.id_token === "string"
         ? decodeJwtPayload(tokenResponseBody.id_token)
         : undefined;
+
+    if (nonce) {
+      if (nonce !== idTokenClaims?.nonce) {
+        return reply.code(400).view("callback.ejs", {
+          callbackTitle: "Callback failed",
+          errorMessage: "Invalid nonce",
+          tokenResponseJson: undefined,
+          idTokenClaimsJson: idTokenClaims
+            ? JSON.stringify(idTokenClaims, null, 2)
+            : undefined,
+        });
+      }
+    }
+
     const tokenResponseForDisplay = {
       ...tokenResponseBody,
       ...(tokenResponseBody.access_token
