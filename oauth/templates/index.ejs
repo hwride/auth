@@ -42,7 +42,9 @@
       <a id="authorize-link" href="/authorize">Authorize</a>
     </div>
     <script>
-      const checkboxes = Array.from(document.querySelectorAll(".scope-checkbox"));
+      const checkboxes = Array.from(
+        document.querySelectorAll(".scope-checkbox"),
+      );
       const pkceCheckbox = document.getElementById("pkce-checkbox");
       const authorizeLink = document.getElementById("authorize-link");
 
@@ -52,7 +54,7 @@
           .map((el) => el.value)
           .join(" ");
         const queryParams = new URLSearchParams();
-        if(pkceCheckbox.checked) {
+        if (pkceCheckbox.checked) {
           queryParams.set("use_pkce", "true");
         }
         if (selectedScopes) {
