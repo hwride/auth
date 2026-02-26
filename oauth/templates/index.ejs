@@ -35,20 +35,32 @@
           profile
         </label>
       </fieldset>
+      <label>
+        <input type="checkbox" id="pkce-checkbox" />
+        Use PKCE?
+      </label>
       <a id="authorize-link" href="/authorize">Authorize</a>
     </div>
     <script>
-      var checkboxes = Array.from(document.querySelectorAll(".scope-checkbox"));
-      var authorizeLink = document.getElementById("authorize-link");
+      const checkboxes = Array.from(document.querySelectorAll(".scope-checkbox"));
+      const pkceCheckbox = document.getElementById("pkce-checkbox");
+      const authorizeLink = document.getElementById("authorize-link");
 
       function updateAuthorizeLink() {
-        var selectedScopes = checkboxes
+        const selectedScopes = checkboxes
           .filter((el) => el.checked)
           .map((el) => el.value)
           .join(" ");
-        var href = "/authorize";
+        const queryParams = new URLSearchParams();
+        if(pkceCheckbox.checked) {
+          queryParams.set("use_pkce", "true");
+        }
         if (selectedScopes) {
-          href += "?" + new URLSearchParams({ scope: selectedScopes }).toString();
+          queryParams.set("scope", selectedScopes);
+        }
+        let href = "/authorize";
+        if (queryParams.toString()) {
+          href += "?" + queryParams.toString();
         }
         authorizeLink.setAttribute("href", href);
       }
@@ -56,6 +68,7 @@
       checkboxes.forEach(function (el) {
         el.addEventListener("change", updateAuthorizeLink);
       });
+      pkceCheckbox.addEventListener("change", updateAuthorizeLink);
       updateAuthorizeLink();
     </script>
   </body>
