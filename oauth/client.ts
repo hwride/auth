@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import view from "@fastify/view";
 import ejs from "ejs";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { decodeJwtPayload } from "./utils/jwt-utils.ts";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -42,6 +42,7 @@ async function initServer() {
   });
 
   let state: string | undefined;
+  let codeVerifier: string | undefined;
   const redirectUri = "http://localhost:3000/callback";
 
   // OAuth, Authorization Code Grant, Authorization Request - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.1
@@ -49,11 +50,12 @@ async function initServer() {
   fastify.get<{
     Querystring: {
       scope?: string;
+      use_pkce?: "true" | "false";
     };
   }>("/authorize", async function (request, reply) {
     const authServerBase = process.env.AUTH_SERVER_BASE;
     const clientId = process.env.CLIENT_ID;
-    const { scope } = request.query;
+    const { scope, use_pkce } = request.query;
 
     const authorizeUrl = new URL("/authorize", authServerBase);
     state = randomUUID();
@@ -63,9 +65,23 @@ async function initServer() {
       redirect_uri: redirectUri,
       state,
     };
+
+    if (use_pkce === "true") {
+      // PKCE, Client Creates a Code Verifier - https://datatracker.ietf.org/doc/html/rfc7636#section-4.1
+      codeVerifier = randomBytes(32).toString("base64url");
+      // PKCE, Client Creates a Code Challenge - https://datatracker.ietf.org/doc/html/rfc7636#section-4.2
+      authorizeQueryParams.code_challenge_method = "S256";
+      authorizeQueryParams.code_challenge = createHash("sha256")
+        .update(codeVerifier)
+        .digest("base64url");
+    } else {
+      codeVerifier = undefined;
+    }
+
     if (scope) {
       authorizeQueryParams.scope = scope.trim();
     }
+
     authorizeUrl.search = new URLSearchParams(authorizeQueryParams).toString();
 
     fastify.log.info(
@@ -121,6 +137,9 @@ async function initServer() {
       code: query.code,
       redirect_uri: redirectUri,
     });
+    if (codeVerifier) {
+      tokenRequestBody.set("code_verifier", codeVerifier);
+    }
 
     fastify.log.info(
       { url: tokenUrl, body: tokenRequestBody.toString() },
