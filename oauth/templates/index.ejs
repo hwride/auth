@@ -36,6 +36,10 @@
         </label>
       </fieldset>
       <label>
+        <input type="checkbox" id="state-checkbox" />
+        Use state?
+      </label>
+      <label>
         <input type="checkbox" id="pkce-checkbox" />
         Use Proof Key for Code Exchange (PKCE)?
       </label>
@@ -45,6 +49,7 @@
       const checkboxes = Array.from(
         document.querySelectorAll(".scope-checkbox"),
       );
+      const stateCheckbox = document.getElementById("state-checkbox");
       const pkceCheckbox = document.getElementById("pkce-checkbox");
       const authorizeLink = document.getElementById("authorize-link");
 
@@ -54,6 +59,9 @@
           .map((el) => el.value)
           .join(" ");
         const queryParams = new URLSearchParams();
+        if (stateCheckbox.checked) {
+          queryParams.set("use_state", "true");
+        }
         if (pkceCheckbox.checked) {
           queryParams.set("use_pkce", "true");
         }
@@ -71,6 +79,7 @@
         el.addEventListener("change", updateAuthorizeLink);
       });
       pkceCheckbox.addEventListener("change", updateAuthorizeLink);
+      stateCheckbox.addEventListener("change", updateAuthorizeLink);
       updateAuthorizeLink();
     </script>
   </body>

@@ -51,20 +51,26 @@ async function initServer() {
     Querystring: {
       scope?: string;
       use_pkce?: "true" | "false";
+      use_state?: "true" | "false";
     };
   }>("/authorize", async function (request, reply) {
     const authServerBase = process.env.AUTH_SERVER_BASE;
     const clientId = process.env.CLIENT_ID;
-    const { scope, use_pkce } = request.query;
+    const { scope, use_pkce, use_state } = request.query;
 
     const authorizeUrl = new URL("/authorize", authServerBase);
-    state = randomUUID();
     const authorizeQueryParams: Record<string, string> = {
       response_type: "code",
       client_id: clientId,
       redirect_uri: redirectUri,
-      state,
     };
+
+    if (use_state === "true") {
+      state = randomUUID();
+      authorizeQueryParams.state = state;
+    } else {
+      state = undefined;
+    }
 
     if (use_pkce === "true") {
       // PKCE, Client Creates a Code Verifier - https://datatracker.ietf.org/doc/html/rfc7636#section-4.1
@@ -119,7 +125,7 @@ async function initServer() {
       });
     }
 
-    if (!query.state || query.state !== state) {
+    if (state && (!query.state || query.state !== state)) {
       return reply.code(400).view("callback.ejs", {
         callbackTitle: "Callback failed",
         errorMessage: "Invalid state",
