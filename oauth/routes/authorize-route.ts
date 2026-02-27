@@ -16,11 +16,10 @@ export function registerAuthorizeRoute(
       use_nonce?: "true" | "false";
     };
   }>("/authorize", async function (request, reply) {
-    const authServerBase = process.env.AUTH_SERVER_BASE;
     const clientId = process.env.CLIENT_ID;
     const { scope, use_pkce, use_state, use_nonce } = request.query;
 
-    const authorizeUrl = new URL("/authorize", authServerBase);
+    const authorizeUrl = new URL(authFlowContext.authorizationEndpoint);
     const authorizeQueryParams: Record<string, string> = {
       response_type: "code",
       client_id: clientId,

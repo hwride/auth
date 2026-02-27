@@ -3,4 +3,6 @@ export type AuthFlowContext = {
   nonce?: string;
   codeVerifier?: string;
   redirectUri: string;
+  authorizationEndpoint: string;
+  tokenEndpoint: string;
 };

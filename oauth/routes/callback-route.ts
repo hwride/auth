@@ -39,10 +39,9 @@ export function registerCallbackRoute(
     }
 
     // OAuth, Access Token Request - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3
-    const authServerBase = process.env.AUTH_SERVER_BASE;
     const clientId = process.env.CLIENT_ID;
     const clientSecret = process.env.CLIENT_SECRET;
-    const tokenUrl = new URL("/oauth/token", authServerBase);
+    const tokenUrl = new URL(authFlowContext.tokenEndpoint);
     const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString(
       "base64",
     );

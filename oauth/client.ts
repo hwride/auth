@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import view from "@fastify/view";
@@ -7,6 +7,7 @@ import type { AuthFlowContext } from "./routes/auth-flow-context.ts";
 import { registerHomeRoute } from "./routes/home-route.ts";
 import { registerAuthorizeRoute } from "./routes/authorize-route.ts";
 import { registerCallbackRoute } from "./routes/callback-route.ts";
+import { discoverAuthServerEndpoints } from "./utils/oidc-discovery.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,9 +42,10 @@ async function initServer() {
 
   registerHomeRoute(fastify);
 
-  const authFlowContext: AuthFlowContext = {
+  const authFlowContext = await initAuthFlowContext({
+    fastify,
     redirectUri: "http://localhost:3000/callback",
-  };
+  });
   registerAuthorizeRoute(fastify, authFlowContext);
   registerCallbackRoute(fastify, authFlowContext);
 
@@ -54,4 +56,28 @@ async function initServer() {
     fastify.log.error(err);
     process.exit(1);
   }
+}
+
+async function initAuthFlowContext({
+  fastify,
+  redirectUri,
+}: {
+  fastify: FastifyInstance;
+  redirectUri: string;
+}): Promise<AuthFlowContext> {
+  const authServerBase = process.env.AUTH_SERVER_BASE;
+  if (!authServerBase) {
+    throw new Error("Missing AUTH_SERVER_BASE");
+  }
+
+  const endpoints = await discoverAuthServerEndpoints(
+    authServerBase,
+    fastify.log,
+  );
+
+  return {
+    redirectUri,
+    authorizationEndpoint: endpoints.authorizationEndpoint,
+    tokenEndpoint: endpoints.tokenEndpoint,
+  };
 }
