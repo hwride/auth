@@ -16,12 +16,14 @@ Allows authorization server to verify authorization and token request came from 
 ***** Better supports short token lifetime, as can use short access token + refresh token
 ***[#red] Implicit grant type
 ****:Get tokens directly from authorization request
-Originally for browser based public clients that couldn't protect client secrets
-Generally deprecated in favour of auth code + PKCE;
+Originally for browser based public clients that couldn't protect client secrets;
+****[#red] Generally deprecated in favour of auth code + PKCE
+**** Why did SPAs use this when native apps used auth code flow?
+***** At the time CORs support was poor so SPAs had trouble making cross-origin requests to token endpoints, native apps didn't have that issue. CORS support has now evolved where it is fine for SPAs to make cross origin token requests.
+
 ***[#red] Resource owner grant type
-****:Client trades username + password for tokens
-Generally deprecated because clients should not see
-resource owner credentials;
+**** Client trades username + password for tokens
+****[#red] Generally deprecated because clients should not see resource owner credentials
 *** Client credentials grant type
 **** No resource owner\nExchange client ID + secret for tokens
 *** Assertion grant type
