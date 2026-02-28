@@ -43,6 +43,11 @@ left side
 *****[#LightSkyBlue] End-User
 *** Client
 **** The software that sends user for auth, and accesses the protected resource on behalf of the resource owner using tokens (client doesn't necessarily a web browser, can be e.g. a server)
+**** Client types
+***** Confidential client
+****** Clients capable of keeping secret credentials, e.g. server side clients
+***** Public client
+****** Clients not capable of keeping secret credentials, e.g. SPAs or native apps
 ****[#LightSkyBlue] OIDC
 *****[#LightSkyBlue] Relying Party (RP)
 *** Authorization Server
