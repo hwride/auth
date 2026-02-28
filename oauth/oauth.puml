@@ -6,7 +6,7 @@ node {
 }
 </style>
 
-+ OAuth 2.0
++ <size:24><b>OAuth 2.0</b></size>
 ++ Grants
 *** Authorization code grant type
 ****:Proof Key for Code Exchange (PKCE)
