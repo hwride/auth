@@ -6,8 +6,8 @@ node {
 }
 </style>
 
-+ <size:24><b>OAuth 2.0</b></size>
-++ Grants
+* <size:24><b>OAuth 2.0</b></size>
+** <b>Grants</b>
 *** Authorization code grant type
 ****:Proof Key for Code Exchange (PKCE)
 Allows authorization server to verify authorization and token request came from the same client;
@@ -24,13 +24,16 @@ resource owner credentials;
 *** Assertion grant type
 **** Client is given a signed assertion it passes to resource server in exchange for tokens
 
+**[#LightSkyBlue] <b>OpenID Connect 1.0 (OIDC)</b>
+*** An identity layer built on top of OAuth 2.0 enabling verification end-user identity based on authentication performed by an Authorization Server
+
 left side
 
-** What is OAuth 2.0
+** <b>What is OAuth 2.0</b>
 *** A delegated authorization protocol
 *** Allows a resource owner to grant access to a resource they control to another piece of software
 
-** Roles
+** <b>Roles</b>
 *** Resource Owner
 **** Entity able to grant access to a resource, usually a person controlling the client software
 ****[#LightSkyBlue] OIDC
@@ -47,14 +50,11 @@ left side
 *** Resource Server
 **** Sever hosting protected resources. Can accept requests for protected resources with access tokens
 
-** Tokens
+** <b>Tokens</b>
 *** Access token
 **** Credentials used to access protected resources
 *** Refresh token
 **** Credentials used to obtain new access tokens when current ones have expired.
 ***[#LightSkyBlue] ID token
 **** Part of OIDC. A security token that contains claims about the authentication of a user, such as their ID (sub)
-
-**[#LightSkyBlue] OpenID Connect 1.0 (OIDC)
-*** An identity layer built on top of OAuth 2.0 enabling verification end-user identity based on authentication performed by an Authorization Server
 @endmindmap
