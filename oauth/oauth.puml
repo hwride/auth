@@ -39,4 +39,12 @@ left side
 **** Server able to authenticate and authorize resource owners and issue tokens
 *** Resource server
 **** Sever hosting protected resources. Can accept requests for protected resources with access tokens
+
+** Tokens
+*** Access token
+**** Credentials used to access protected resources
+*** Refresh token
+**** Credentials used to obtain new access tokens when current ones have expired.
+*** ID token
+**** Part of OIDC. A security token that contains claims about the authentication of a user, such as their ID (sub)
 @endmindmap
