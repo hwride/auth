@@ -31,13 +31,20 @@ left side
 *** Allows a resource owner to grant access to a resource they control to another piece of software
 
 ** Roles
-*** Resource owner
+*** Resource Owner
 **** Entity able to grant access to a resource, usually a person controlling the client software
+****[#LightSkyBlue] OIDC
+*****[#LightSkyBlue] End-User
 *** Client
 **** The software that sends user for auth, and accesses the protected resource on behalf of the resource owner using tokens (client doesn't necessarily a web browser, can be e.g. a server)
-*** Authorization server
+****[#LightSkyBlue] OIDC
+*****[#LightSkyBlue] Relying Party (RP)
+*** Authorization Server
 **** Server able to authenticate and authorize resource owners and issue tokens
-*** Resource server
+****[#LightSkyBlue] OIDC
+*****[#LightSkyBlue] OpenID Provider (OP)
+******[#LightSkyBlue] An authorization server capable of authentication a user and providing an OIDC ID token
+*** Resource Server
 **** Sever hosting protected resources. Can accept requests for protected resources with access tokens
 
 ** Tokens
@@ -45,6 +52,9 @@ left side
 **** Credentials used to access protected resources
 *** Refresh token
 **** Credentials used to obtain new access tokens when current ones have expired.
-*** ID token
+***[#LightSkyBlue] ID token
 **** Part of OIDC. A security token that contains claims about the authentication of a user, such as their ID (sub)
+
+**[#LightSkyBlue] OpenID Connect 1.0 (OIDC)
+*** An identity layer built on top of OAuth 2.0 enabling verification end-user identity based on authentication performed by an Authorization Server
 @endmindmap
