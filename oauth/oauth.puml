@@ -10,7 +10,7 @@ node {
 ** <b>Grants</b>
 *** Authorization code grant type
 ****:Proof Key for Code Exchange (PKCE)
-Allows authorization server to verify authorization and token request came from the same client;
+Extension to auth code flow. Allows authorization server to verify authorization and token request came from the same client;
 **** Replaced implicit flow by allowing public clients to use auth code flow
 ***** No longer need to send access token in front channel (URL fragment)
 ***** Better supports short token lifetime, as can use short access token + refresh token
