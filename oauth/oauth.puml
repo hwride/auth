@@ -6,11 +6,11 @@ node {
 }
 </style>
 
-* <size:24><b>OAuth 2.0</b></size>
+* <size:24><b>[[https://datatracker.ietf.org/doc/html/rfc6749 OAuth 2.0]]</b></size>
 ** <b>Grants</b>
 *** Authorization code grant type
-****:Proof Key for Code Exchange (PKCE)
-Extension to auth code flow. Allows authorization server to verify authorization and token request came from the same client;
+**** [[https://datatracker.ietf.org/doc/html/rfc7636 Proof Key for Code Exchange (PKCE)]]
+***** Extension to auth code flow. Allows authorization server to verify authorization and token requests came from the same client
 **** Replaced implicit flow by allowing public clients to use auth code flow
 ***** No longer need to send access token in front channel (URL fragment)
 ***** Better supports short token lifetime, as can use short access token + refresh token
@@ -29,7 +29,7 @@ Originally for browser based public clients that couldn't protect client secrets
 *** Assertion grant type
 **** Client is given a signed assertion it passes to resource server in exchange for tokens
 
-**[#LightSkyBlue] <b>OpenID Connect 1.0 (OIDC)</b>
+**[#LightSkyBlue] <b>[[https://openid.net/specs/openid-connect-core-1_0-final.html OpenID Connect 1.0 (OIDC)]]</b>
 *** An identity layer built on top of OAuth 2.0 enabling verification end-user identity based on authentication performed by an Authorization Server
 
 left side
