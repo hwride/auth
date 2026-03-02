@@ -112,6 +112,16 @@
             <option value="select_account">select_account</option>
           </select>
         </label>
+        <label>
+          <input type="checkbox" id="display-checkbox" />
+          Use display?
+          <select id="display-select">
+            <option value="page">page</option>
+            <option value="popup">popup</option>
+            <option value="touch">touch</option>
+            <option value="wap">wap</option>
+          </select>
+        </label>
       </fieldset>
       <a id="authorize-link" href="/authorize">Authorize</a>
     </div>
@@ -132,6 +142,8 @@
         maxAgeInput: document.getElementById("max-age-input"),
         promptCheckbox: document.getElementById("prompt-checkbox"),
         promptSelect: document.getElementById("prompt-select"),
+        displayCheckbox: document.getElementById("display-checkbox"),
+        displaySelect: document.getElementById("display-select"),
         scopeCheckboxes: Array.from(
           document.querySelectorAll("#oidc-scopes-fieldset .scope-checkbox"),
         ),
@@ -171,6 +183,9 @@
           }
           if (oidc.promptCheckbox.checked) {
             queryParams.set("prompt", oidc.promptSelect.value);
+          }
+          if (oidc.displayCheckbox.checked) {
+            queryParams.set("display", oidc.displaySelect.value);
           }
         }
 
@@ -218,6 +233,8 @@
             oidc.maxAgeCheckbox,
             oidc.promptCheckbox,
             oidc.promptSelect,
+            oidc.displayCheckbox,
+            oidc.displaySelect,
           ],
           "change",
           updateAuthorizeLink,
