@@ -62,7 +62,7 @@
           Use Proof Key for Code Exchange (PKCE)?
         </label>
       </fieldset>
-      <fieldset>
+      <fieldset id="oidc-fieldset">
         <legend>OpenID Connect 1.0</legend>
         <fieldset class="scopes-fieldset">
           <legend>Scopes</legend>
@@ -70,6 +70,7 @@
             <input
               type="checkbox"
               value="openid"
+              id="openid-scope-checkbox"
               class="scope-checkbox"
               checked
             />
@@ -113,24 +114,47 @@
       const pkceCheckbox = document.getElementById("pkce-checkbox");
       const maxAgeCheckbox = document.getElementById("max-age-checkbox");
       const maxAgeInput = document.getElementById("max-age-input");
+      const oidcFieldset = document.getElementById("oidc-fieldset");
+      const openidScopeCheckbox = document.getElementById("openid-scope-checkbox");
       const authorizeLink = document.getElementById("authorize-link");
 
+      function syncOidcControls() {
+        const oidcInputs = oidcFieldset.querySelectorAll(
+          "input, select, textarea, button",
+        );
+        oidcInputs.forEach((el) => {
+          if (el === openidScopeCheckbox) {
+            return;
+          }
+          el.disabled = !openidScopeCheckbox.checked;
+        });
+      }
+
       function updateAuthorizeLink() {
+        const oidcEnabled = openidScopeCheckbox.checked;
+        const oidcScopeValues = new Set([
+          "openid",
+          "email",
+          "profile",
+          "address",
+          "phone",
+        ]);
         const selectedScopes = checkboxes
-          .filter((el) => el.checked)
+          .filter((el) => el.checked && !el.disabled)
+          .filter((el) => oidcEnabled || !oidcScopeValues.has(el.value))
           .map((el) => el.value)
           .join(" ");
         const queryParams = new URLSearchParams();
         if (stateCheckbox.checked) {
           queryParams.set("use_state", "true");
         }
-        if (nonceCheckbox.checked) {
+        if (oidcEnabled && nonceCheckbox.checked && !nonceCheckbox.disabled) {
           queryParams.set("use_nonce", "true");
         }
         if (pkceCheckbox.checked) {
           queryParams.set("use_pkce", "true");
         }
-        if (maxAgeCheckbox.checked) {
+        if (oidcEnabled && maxAgeCheckbox.checked && !maxAgeCheckbox.disabled) {
           queryParams.set("max_age", maxAgeInput.value || "0");
         }
         if (selectedScopes) {
@@ -151,6 +175,11 @@
       stateCheckbox.addEventListener("change", updateAuthorizeLink);
       maxAgeCheckbox.addEventListener("change", updateAuthorizeLink);
       maxAgeInput.addEventListener("input", updateAuthorizeLink);
+      openidScopeCheckbox.addEventListener("change", function () {
+        syncOidcControls();
+        updateAuthorizeLink();
+      });
+      syncOidcControls();
       updateAuthorizeLink();
     </script>
   </body>
