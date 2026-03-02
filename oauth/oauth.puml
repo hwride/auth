@@ -20,7 +20,6 @@ Originally for browser based public clients that couldn't protect client secrets
 ****[#red] Generally deprecated in favour of auth code + PKCE
 **** Why did SPAs use this when native apps used auth code flow?
 ***** At the time CORs support was poor so SPAs had trouble making cross-origin requests to token endpoints, native apps didn't have that issue. CORS support has now evolved where it is fine for SPAs to make cross origin token requests.
-
 ***[#red] Resource owner grant type
 **** Client trades username + password for tokens
 ****[#red] Generally deprecated because clients should not see resource owner credentials
@@ -28,9 +27,14 @@ Originally for browser based public clients that couldn't protect client secrets
 **** No resource owner\nExchange client ID + secret for tokens
 *** Assertion grant type
 **** Client is given a signed assertion it passes to resource server in exchange for tokens
+*** Device grant type
+**** Designed for devices that are input-constrained or lack a browser.
 
 **[#LightSkyBlue] <b>[[https://openid.net/specs/openid-connect-core-1_0-final.html OpenID Connect 1.0 (OIDC)]]</b>
 *** An identity layer built on top of OAuth 2.0 enabling verification end-user identity based on authentication performed by an Authorization Server
+
+** <b>OAuth 2.1</b>
+*** This is a in-progress effort to consolidate and simplify the most commonly used features and best practices of OAuth.
 
 left side
 
