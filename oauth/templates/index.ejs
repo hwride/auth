@@ -40,9 +40,9 @@
   <body>
     <h1>OAuth Client</h1>
     <div id="authorize-controls">
-      <fieldset>
+      <fieldset id="oauth-fieldset">
         <legend>OAuth 2.0</legend>
-        <fieldset class="scopes-fieldset">
+        <fieldset id="oauth-scopes-fieldset" class="scopes-fieldset">
           <legend>Scopes</legend>
           <label>
             <input
@@ -64,7 +64,7 @@
       </fieldset>
       <fieldset id="oidc-fieldset">
         <legend>OpenID Connect 1.0</legend>
-        <fieldset class="scopes-fieldset">
+        <fieldset id="oidc-scopes-fieldset" class="scopes-fieldset">
           <legend>Scopes</legend>
           <label>
             <input
@@ -106,60 +106,71 @@
       <a id="authorize-link" href="/authorize">Authorize</a>
     </div>
     <script>
-      const checkboxes = Array.from(
-        document.querySelectorAll(".scope-checkbox"),
-      );
-      const stateCheckbox = document.getElementById("state-checkbox");
-      const nonceCheckbox = document.getElementById("nonce-checkbox");
-      const pkceCheckbox = document.getElementById("pkce-checkbox");
-      const maxAgeCheckbox = document.getElementById("max-age-checkbox");
-      const maxAgeInput = document.getElementById("max-age-input");
-      const oidcFieldset = document.getElementById("oidc-fieldset");
-      const openidScopeCheckbox = document.getElementById("openid-scope-checkbox");
+      const oauth = {
+        stateCheckbox: document.getElementById("state-checkbox"),
+        pkceCheckbox: document.getElementById("pkce-checkbox"),
+        scopeCheckboxes: Array.from(
+          document.querySelectorAll("#oauth-scopes-fieldset .scope-checkbox"),
+        ),
+      };
+
+      const oidc = {
+        fieldset: document.getElementById("oidc-fieldset"),
+        openidScopeCheckbox: document.getElementById("openid-scope-checkbox"),
+        nonceCheckbox: document.getElementById("nonce-checkbox"),
+        maxAgeCheckbox: document.getElementById("max-age-checkbox"),
+        maxAgeInput: document.getElementById("max-age-input"),
+        scopeCheckboxes: Array.from(
+          document.querySelectorAll("#oidc-scopes-fieldset .scope-checkbox"),
+        ),
+      };
+
       const authorizeLink = document.getElementById("authorize-link");
 
       function syncOidcControls() {
-        const oidcInputs = oidcFieldset.querySelectorAll(
+        const oidcInputs = oidc.fieldset.querySelectorAll(
           "input, select, textarea, button",
         );
         oidcInputs.forEach((el) => {
-          if (el === openidScopeCheckbox) {
+          if (el === oidc.openidScopeCheckbox) {
             return;
           }
-          el.disabled = !openidScopeCheckbox.checked;
+          el.disabled = !oidc.openidScopeCheckbox.checked;
         });
       }
 
       function updateAuthorizeLink() {
-        const oidcEnabled = openidScopeCheckbox.checked;
-        const oidcScopeValues = new Set([
-          "openid",
-          "email",
-          "profile",
-          "address",
-          "phone",
-        ]);
-        const selectedScopes = checkboxes
-          .filter((el) => el.checked && !el.disabled)
-          .filter((el) => oidcEnabled || !oidcScopeValues.has(el.value))
-          .map((el) => el.value)
-          .join(" ");
         const queryParams = new URLSearchParams();
-        if (stateCheckbox.checked) {
+
+        if (oauth.stateCheckbox.checked) {
           queryParams.set("use_state", "true");
         }
-        if (oidcEnabled && nonceCheckbox.checked && !nonceCheckbox.disabled) {
-          queryParams.set("use_nonce", "true");
-        }
-        if (pkceCheckbox.checked) {
+        if (oauth.pkceCheckbox.checked) {
           queryParams.set("use_pkce", "true");
         }
-        if (oidcEnabled && maxAgeCheckbox.checked && !maxAgeCheckbox.disabled) {
-          queryParams.set("max_age", maxAgeInput.value || "0");
+
+        const oidcEnabled = oidc.openidScopeCheckbox.checked;
+        if (oidcEnabled) {
+          if (oidc.nonceCheckbox.checked) {
+            queryParams.set("use_nonce", "true");
+          }
+          if (oidc.maxAgeCheckbox.checked) {
+            queryParams.set("max_age", oidc.maxAgeInput.value || "0");
+          }
         }
-        if (selectedScopes) {
-          queryParams.set("scope", selectedScopes);
+
+        // Scopes
+        const scopeCheckboxes = oidcEnabled
+          ? [...oauth.scopeCheckboxes, ...oidc.scopeCheckboxes]
+          : [...oauth.scopeCheckboxes];
+        const scope = scopeCheckboxes
+          .filter((el) => el.checked)
+          .map((el) => el.value)
+          .join(" ");
+        if (scope) {
+          queryParams.set("scope", scope);
         }
+
         let href = "/authorize";
         if (queryParams.toString()) {
           href += "?" + queryParams.toString();
@@ -167,18 +178,39 @@
         authorizeLink.setAttribute("href", href);
       }
 
-      checkboxes.forEach(function (el) {
-        el.addEventListener("change", updateAuthorizeLink);
-      });
-      pkceCheckbox.addEventListener("change", updateAuthorizeLink);
-      nonceCheckbox.addEventListener("change", updateAuthorizeLink);
-      stateCheckbox.addEventListener("change", updateAuthorizeLink);
-      maxAgeCheckbox.addEventListener("change", updateAuthorizeLink);
-      maxAgeInput.addEventListener("input", updateAuthorizeLink);
-      openidScopeCheckbox.addEventListener("change", function () {
-        syncOidcControls();
-        updateAuthorizeLink();
-      });
+      function addListeners(elements, eventName, listener) {
+        elements.forEach((el) => el.addEventListener(eventName, listener));
+      }
+
+      function bindOAuthListeners() {
+        addListeners(
+          [...oauth.scopeCheckboxes, oauth.stateCheckbox, oauth.pkceCheckbox],
+          "change",
+          updateAuthorizeLink,
+        );
+      }
+
+      function bindOidcListeners() {
+        const oidcScopeCheckboxes = oidc.scopeCheckboxes.filter(
+          (el) => el !== oidc.openidScopeCheckbox,
+        );
+        addListeners([oidc.openidScopeCheckbox], "change", syncOidcControls);
+        addListeners(
+          [
+            oidc.openidScopeCheckbox,
+            ...oidcScopeCheckboxes,
+            oidc.nonceCheckbox,
+            oidc.maxAgeCheckbox,
+          ],
+          "change",
+          updateAuthorizeLink,
+        );
+        addListeners([oidc.maxAgeInput], "input", updateAuthorizeLink);
+      }
+
+      bindOAuthListeners();
+      bindOidcListeners();
+
       syncOidcControls();
       updateAuthorizeLink();
     </script>
