@@ -122,6 +122,14 @@
             <option value="wap">wap</option>
           </select>
         </label>
+        <label>
+          <input type="checkbox" id="ui-locales-checkbox" />
+          Use ui_locales?
+          <select id="ui-locales-select">
+            <option value="en-GB">en-GB</option>
+            <option value="fr-FR">fr-FR</option>
+          </select>
+        </label>
       </fieldset>
       <a id="authorize-link" href="/authorize">Authorize</a>
     </div>
@@ -144,6 +152,8 @@
         promptSelect: document.getElementById("prompt-select"),
         displayCheckbox: document.getElementById("display-checkbox"),
         displaySelect: document.getElementById("display-select"),
+        uiLocalesCheckbox: document.getElementById("ui-locales-checkbox"),
+        uiLocalesSelect: document.getElementById("ui-locales-select"),
         scopeCheckboxes: Array.from(
           document.querySelectorAll("#oidc-scopes-fieldset .scope-checkbox"),
         ),
@@ -186,6 +196,9 @@
           }
           if (oidc.displayCheckbox.checked) {
             queryParams.set("display", oidc.displaySelect.value);
+          }
+          if (oidc.uiLocalesCheckbox.checked) {
+            queryParams.set("ui_locales", oidc.uiLocalesSelect.value);
           }
         }
 
@@ -235,6 +248,8 @@
             oidc.promptSelect,
             oidc.displayCheckbox,
             oidc.displaySelect,
+            oidc.uiLocalesCheckbox,
+            oidc.uiLocalesSelect,
           ],
           "change",
           updateAuthorizeLink,
