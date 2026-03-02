@@ -70,7 +70,8 @@
       </label>
       <label>
         <input type="checkbox" id="max-age-checkbox" />
-        Use max_age=0?
+        Use max_age?
+        <input type="number" id="max-age-input" value="0" min="0" step="1" />
       </label>
       <a id="authorize-link" href="/authorize">Authorize</a>
     </div>
@@ -82,6 +83,7 @@
       const nonceCheckbox = document.getElementById("nonce-checkbox");
       const pkceCheckbox = document.getElementById("pkce-checkbox");
       const maxAgeCheckbox = document.getElementById("max-age-checkbox");
+      const maxAgeInput = document.getElementById("max-age-input");
       const authorizeLink = document.getElementById("authorize-link");
 
       function updateAuthorizeLink() {
@@ -100,7 +102,7 @@
           queryParams.set("use_pkce", "true");
         }
         if (maxAgeCheckbox.checked) {
-          queryParams.set("max_age", "0");
+          queryParams.set("max_age", maxAgeInput.value || "0");
         }
         if (selectedScopes) {
           queryParams.set("scope", selectedScopes);
@@ -119,6 +121,7 @@
       nonceCheckbox.addEventListener("change", updateAuthorizeLink);
       stateCheckbox.addEventListener("change", updateAuthorizeLink);
       maxAgeCheckbox.addEventListener("change", updateAuthorizeLink);
+      maxAgeInput.addEventListener("input", updateAuthorizeLink);
       updateAuthorizeLink();
     </script>
   </body>
