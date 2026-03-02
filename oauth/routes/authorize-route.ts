@@ -15,6 +15,7 @@ export function registerAuthorizeRoute(
       prompt?: "none" | "login" | "consent" | "select_account";
       display?: "page" | "popup" | "touch" | "wap";
       ui_locales?: "en-GB" | "nl-BE" | "fr-BE";
+      login_hint?: string;
       use_pkce?: "true" | "false";
       use_state?: "true" | "false";
       use_nonce?: "true" | "false";
@@ -27,6 +28,7 @@ export function registerAuthorizeRoute(
       prompt,
       display,
       ui_locales,
+      login_hint,
       use_pkce,
       use_state,
       use_nonce,
@@ -80,6 +82,9 @@ export function registerAuthorizeRoute(
     }
     if (ui_locales) {
       authorizeQueryParams.ui_locales = ui_locales;
+    }
+    if (login_hint?.trim()) {
+      authorizeQueryParams.login_hint = login_hint.trim();
     }
 
     authorizeUrl.search = new URLSearchParams(authorizeQueryParams).toString();

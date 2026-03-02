@@ -130,6 +130,15 @@
             <option value="fr-FR">fr-FR</option>
           </select>
         </label>
+        <label>
+          <input type="checkbox" id="login-hint-checkbox" />
+          Use login_hint?
+          <input
+            type="text"
+            id="login-hint-input"
+            placeholder="user@example.com"
+          />
+        </label>
       </fieldset>
       <a id="authorize-link" href="/authorize">Authorize</a>
     </div>
@@ -154,6 +163,8 @@
         displaySelect: document.getElementById("display-select"),
         uiLocalesCheckbox: document.getElementById("ui-locales-checkbox"),
         uiLocalesSelect: document.getElementById("ui-locales-select"),
+        loginHintCheckbox: document.getElementById("login-hint-checkbox"),
+        loginHintInput: document.getElementById("login-hint-input"),
         scopeCheckboxes: Array.from(
           document.querySelectorAll("#oidc-scopes-fieldset .scope-checkbox"),
         ),
@@ -199,6 +210,12 @@
           }
           if (oidc.uiLocalesCheckbox.checked) {
             queryParams.set("ui_locales", oidc.uiLocalesSelect.value);
+          }
+          if (oidc.loginHintCheckbox.checked) {
+            const loginHint = oidc.loginHintInput.value.trim();
+            if (loginHint) {
+              queryParams.set("login_hint", loginHint);
+            }
           }
         }
 
@@ -250,11 +267,16 @@
             oidc.displaySelect,
             oidc.uiLocalesCheckbox,
             oidc.uiLocalesSelect,
+            oidc.loginHintCheckbox,
           ],
           "change",
           updateAuthorizeLink,
         );
-        addListeners([oidc.maxAgeInput], "input", updateAuthorizeLink);
+        addListeners(
+          [oidc.maxAgeInput, oidc.loginHintInput],
+          "input",
+          updateAuthorizeLink,
+        );
       }
 
       bindOAuthListeners();
