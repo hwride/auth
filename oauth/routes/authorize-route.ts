@@ -12,13 +12,15 @@ export function registerAuthorizeRoute(
     Querystring: {
       scope?: string;
       max_age?: string;
+      prompt?: "none" | "login" | "consent" | "select_account";
       use_pkce?: "true" | "false";
       use_state?: "true" | "false";
       use_nonce?: "true" | "false";
     };
   }>("/authorize", async function (request, reply) {
     const clientId = process.env.CLIENT_ID;
-    const { scope, max_age, use_pkce, use_state, use_nonce } = request.query;
+    const { scope, max_age, prompt, use_pkce, use_state, use_nonce } =
+      request.query;
 
     const authorizeUrl = new URL(authFlowContext.authorizationEndpoint);
     const authorizeQueryParams: Record<string, string> = {
@@ -59,6 +61,9 @@ export function registerAuthorizeRoute(
     }
     if (max_age) {
       authorizeQueryParams.max_age = max_age.trim();
+    }
+    if (prompt) {
+      authorizeQueryParams.prompt = prompt;
     }
 
     authorizeUrl.search = new URLSearchParams(authorizeQueryParams).toString();

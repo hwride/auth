@@ -102,6 +102,16 @@
           Use max_age?
           <input type="number" id="max-age-input" value="0" min="0" step="1" />
         </label>
+        <label>
+          <input type="checkbox" id="prompt-checkbox" />
+          Use prompt?
+          <select id="prompt-select">
+            <option value="none">none</option>
+            <option value="login">login</option>
+            <option value="consent">consent</option>
+            <option value="select_account">select_account</option>
+          </select>
+        </label>
       </fieldset>
       <a id="authorize-link" href="/authorize">Authorize</a>
     </div>
@@ -120,6 +130,8 @@
         nonceCheckbox: document.getElementById("nonce-checkbox"),
         maxAgeCheckbox: document.getElementById("max-age-checkbox"),
         maxAgeInput: document.getElementById("max-age-input"),
+        promptCheckbox: document.getElementById("prompt-checkbox"),
+        promptSelect: document.getElementById("prompt-select"),
         scopeCheckboxes: Array.from(
           document.querySelectorAll("#oidc-scopes-fieldset .scope-checkbox"),
         ),
@@ -156,6 +168,9 @@
           }
           if (oidc.maxAgeCheckbox.checked) {
             queryParams.set("max_age", oidc.maxAgeInput.value || "0");
+          }
+          if (oidc.promptCheckbox.checked) {
+            queryParams.set("prompt", oidc.promptSelect.value);
           }
         }
 
@@ -201,6 +216,8 @@
             ...oidcScopeCheckboxes,
             oidc.nonceCheckbox,
             oidc.maxAgeCheckbox,
+            oidc.promptCheckbox,
+            oidc.promptSelect,
           ],
           "change",
           updateAuthorizeLink,
