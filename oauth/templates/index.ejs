@@ -8,12 +8,32 @@
       #authorize-controls {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 0.75rem;
         align-items: flex-start;
       }
 
-      #authorize-controls fieldset {
+      #authorize-controls > fieldset {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
         width: fit-content;
+      }
+
+      #authorize-controls label {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+
+      .scopes-fieldset {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 0.75rem;
+        width: fit-content;
+      }
+
+      .scopes-fieldset label {
+        gap: 0.25rem;
       }
     </style>
   </head>
@@ -21,58 +41,67 @@
     <h1>OAuth Client</h1>
     <div id="authorize-controls">
       <fieldset>
-        <legend>Scopes</legend>
+        <legend>OAuth 2.0</legend>
+        <fieldset class="scopes-fieldset">
+          <legend>Scopes</legend>
+          <label>
+            <input
+              type="checkbox"
+              value="offline_access"
+              class="scope-checkbox"
+            />
+            offline_access
+          </label>
+        </fieldset>
         <label>
-          <input
-            type="checkbox"
-            value="openid"
-            class="scope-checkbox"
-            checked
-          />
-          openid
+          <input type="checkbox" id="state-checkbox" checked />
+          Use state?
         </label>
         <label>
-          <input type="checkbox" value="email" class="scope-checkbox" />
-          email
-        </label>
-        <label>
-          <input type="checkbox" value="profile" class="scope-checkbox" />
-          profile
-        </label>
-        <label>
-          <input type="checkbox" value="address" class="scope-checkbox" />
-          address
-        </label>
-        <label>
-          <input type="checkbox" value="phone" class="scope-checkbox" />
-          phone
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            value="offline_access"
-            class="scope-checkbox"
-          />
-          offline_access
+          <input type="checkbox" id="pkce-checkbox" checked />
+          Use Proof Key for Code Exchange (PKCE)?
         </label>
       </fieldset>
-      <label>
-        <input type="checkbox" id="state-checkbox" checked />
-        Use state?
-      </label>
-      <label>
-        <input type="checkbox" id="nonce-checkbox" checked />
-        Use nonce?
-      </label>
-      <label>
-        <input type="checkbox" id="pkce-checkbox" checked />
-        Use Proof Key for Code Exchange (PKCE)?
-      </label>
-      <label>
-        <input type="checkbox" id="max-age-checkbox" />
-        Use max_age?
-        <input type="number" id="max-age-input" value="0" min="0" step="1" />
-      </label>
+      <fieldset>
+        <legend>OpenID Connect 1.0</legend>
+        <fieldset class="scopes-fieldset">
+          <legend>Scopes</legend>
+          <label>
+            <input
+              type="checkbox"
+              value="openid"
+              class="scope-checkbox"
+              checked
+            />
+            openid
+          </label>
+          <label>
+            <input type="checkbox" value="email" class="scope-checkbox" />
+            email
+          </label>
+          <label>
+            <input type="checkbox" value="profile" class="scope-checkbox" />
+            profile
+          </label>
+          <label>
+            <input type="checkbox" value="address" class="scope-checkbox" />
+            address
+          </label>
+          <label>
+            <input type="checkbox" value="phone" class="scope-checkbox" />
+            phone
+          </label>
+        </fieldset>
+        <label>
+          <input type="checkbox" id="nonce-checkbox" checked />
+          Use nonce?
+        </label>
+        <label>
+          <input type="checkbox" id="max-age-checkbox" />
+          Use max_age?
+          <input type="number" id="max-age-input" value="0" min="0" step="1" />
+        </label>
+      </fieldset>
       <a id="authorize-link" href="/authorize">Authorize</a>
     </div>
     <script>
