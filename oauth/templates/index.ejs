@@ -23,7 +23,12 @@
       <fieldset>
         <legend>Scopes</legend>
         <label>
-          <input type="checkbox" value="openid" class="scope-checkbox" checked />
+          <input
+            type="checkbox"
+            value="openid"
+            class="scope-checkbox"
+            checked
+          />
           openid
         </label>
         <label>
@@ -63,6 +68,10 @@
         <input type="checkbox" id="pkce-checkbox" checked />
         Use Proof Key for Code Exchange (PKCE)?
       </label>
+      <label>
+        <input type="checkbox" id="max-age-checkbox" />
+        Use max_age=0?
+      </label>
       <a id="authorize-link" href="/authorize">Authorize</a>
     </div>
     <script>
@@ -72,6 +81,7 @@
       const stateCheckbox = document.getElementById("state-checkbox");
       const nonceCheckbox = document.getElementById("nonce-checkbox");
       const pkceCheckbox = document.getElementById("pkce-checkbox");
+      const maxAgeCheckbox = document.getElementById("max-age-checkbox");
       const authorizeLink = document.getElementById("authorize-link");
 
       function updateAuthorizeLink() {
@@ -89,6 +99,9 @@
         if (pkceCheckbox.checked) {
           queryParams.set("use_pkce", "true");
         }
+        if (maxAgeCheckbox.checked) {
+          queryParams.set("max_age", "0");
+        }
         if (selectedScopes) {
           queryParams.set("scope", selectedScopes);
         }
@@ -105,6 +118,7 @@
       pkceCheckbox.addEventListener("change", updateAuthorizeLink);
       nonceCheckbox.addEventListener("change", updateAuthorizeLink);
       stateCheckbox.addEventListener("change", updateAuthorizeLink);
+      maxAgeCheckbox.addEventListener("change", updateAuthorizeLink);
       updateAuthorizeLink();
     </script>
   </body>

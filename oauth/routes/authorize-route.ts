@@ -11,13 +11,14 @@ export function registerAuthorizeRoute(
   fastify.get<{
     Querystring: {
       scope?: string;
+      max_age?: string;
       use_pkce?: "true" | "false";
       use_state?: "true" | "false";
       use_nonce?: "true" | "false";
     };
   }>("/authorize", async function (request, reply) {
     const clientId = process.env.CLIENT_ID;
-    const { scope, use_pkce, use_state, use_nonce } = request.query;
+    const { scope, max_age, use_pkce, use_state, use_nonce } = request.query;
 
     const authorizeUrl = new URL(authFlowContext.authorizationEndpoint);
     const authorizeQueryParams: Record<string, string> = {
@@ -55,6 +56,9 @@ export function registerAuthorizeRoute(
 
     if (scope) {
       authorizeQueryParams.scope = scope.trim();
+    }
+    if (max_age) {
+      authorizeQueryParams.max_age = max_age.trim();
     }
 
     authorizeUrl.search = new URLSearchParams(authorizeQueryParams).toString();
