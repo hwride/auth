@@ -28,9 +28,9 @@
     <h2>Token response</h2>
     <pre><%= tokenResponseJson %></pre>
     <% } %>
-    <% if (idTokenClaimsJson) { %>
-    <h2>ID token contents</h2>
-    <pre><%= idTokenClaimsJson %></pre>
+    <% if (idTokenJson) { %>
+    <h2>ID token</h2>
+    <pre><%= idTokenJson %></pre>
     <% } else { %>
     <p>No ID token present.</p>
     <% } %>

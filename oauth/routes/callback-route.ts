@@ -23,7 +23,7 @@ export function registerCallbackRoute(
         callbackTitle: "Callback failed",
         errorMessage: "Missing code",
         tokenResponseJson: undefined,
-        idTokenClaimsJson: undefined,
+        idTokenJson: undefined,
       });
     }
 
@@ -35,7 +35,7 @@ export function registerCallbackRoute(
         callbackTitle: "Callback failed",
         errorMessage: "Invalid state",
         tokenResponseJson: undefined,
-        idTokenClaimsJson: undefined,
+        idTokenJson: undefined,
       });
     }
 
@@ -88,7 +88,7 @@ export function registerCallbackRoute(
         callbackTitle: "Callback failed",
         errorMessage: "Token request failed",
         tokenResponseJson: formattedErrorResponseBody,
-        idTokenClaimsJson: undefined,
+        idTokenJson: undefined,
       });
     }
 
@@ -100,12 +100,26 @@ export function registerCallbackRoute(
     >;
 
     let idTokenPayload: JWTPayload;
+    let idTokenJson: string | undefined;
     if (typeof tokenResponseBody.id_token === "string") {
       try {
         fastify.log.info("Verifying ID token signature...");
-        idTokenPayload = await verifyJwtWithJose(
+        const { payload, protectedHeader } = await verifyJwtWithJose(
           tokenResponseBody.id_token,
           authFlowContext.jwksUri,
+        );
+        idTokenPayload = payload;
+        idTokenJson = JSON.stringify(
+          { header: protectedHeader, payload },
+          null,
+          2,
+        );
+        fastify.log.info(
+          {
+            header: protectedHeader,
+            payload: payload,
+          },
+          "ID token",
         );
       } catch (e) {
         fastify.log.error({ error: e }, "ID token failed verification.");
@@ -113,7 +127,7 @@ export function registerCallbackRoute(
           callbackTitle: "Callback failed",
           errorMessage: "ID token did not match authorization server signature",
           tokenResponseJson: undefined,
-          idTokenClaimsJson: undefined,
+          idTokenJson: undefined,
         });
       }
     }
@@ -124,9 +138,7 @@ export function registerCallbackRoute(
           callbackTitle: "Callback failed",
           errorMessage: "Invalid nonce",
           tokenResponseJson: undefined,
-          idTokenClaimsJson: idTokenPayload
-            ? JSON.stringify(idTokenPayload, null, 2)
-            : undefined,
+          idTokenJson,
         });
       }
     }
@@ -145,9 +157,7 @@ export function registerCallbackRoute(
       callbackTitle: "Callback success",
       errorMessage: undefined,
       tokenResponseJson: JSON.stringify(tokenResponseForDisplay, null, 2),
-      idTokenClaimsJson: idTokenPayload
-        ? JSON.stringify(idTokenPayload, null, 2)
-        : undefined,
+      idTokenJson,
     });
   });
 }
