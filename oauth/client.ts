@@ -79,5 +79,6 @@ async function initAuthFlowContext({
     redirectUri,
     authorizationEndpoint: endpoints.authorizationEndpoint,
     tokenEndpoint: endpoints.tokenEndpoint,
+    jwksUri: endpoints.jwksUri,
   };
 }

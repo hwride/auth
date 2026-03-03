@@ -32,12 +32,18 @@ export async function discoverAuthServerEndpoints(
       const metadata = (await response.json()) as {
         authorization_endpoint?: string;
         token_endpoint?: string;
+        jwks_uri?: string;
       };
-      if (metadata.authorization_endpoint && metadata.token_endpoint) {
+      if (
+        metadata.authorization_endpoint &&
+        metadata.token_endpoint &&
+        metadata.jwks_uri
+      ) {
         const result = {
           kind: target.kind,
           authorizationEndpoint: metadata.authorization_endpoint,
           tokenEndpoint: metadata.token_endpoint,
+          jwksUri: metadata.jwks_uri,
           discoveryUrl: target.url.toString(),
         };
         logger.info(result, `Using endpoints from ${target.kind} discovery`);
@@ -56,6 +62,7 @@ export async function discoverAuthServerEndpoints(
   const fallback = {
     authorizationEndpoint: new URL("/authorize", authServerBase).toString(),
     tokenEndpoint: new URL("/oauth/token", authServerBase).toString(),
+    jwksUri: undefined,
     discoveryUrl: undefined,
   };
   logger.warn(

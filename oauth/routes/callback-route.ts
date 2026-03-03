@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
-import { decodeJwtPayload } from "../utils/jwt-utils.ts";
 import type { AuthFlowContext } from "./auth-flow-context.ts";
+import { verifyJwtWithJose } from "../utils/jwt-verifier.ts";
+import type { JWTPayload } from "jose";
 
 export function registerCallbackRoute(
   fastify: FastifyInstance,
@@ -98,19 +99,33 @@ export function registerCallbackRoute(
       unknown
     >;
 
-    const idTokenClaims: any =
-      typeof tokenResponseBody.id_token === "string"
-        ? decodeJwtPayload(tokenResponseBody.id_token)
-        : undefined;
+    let idTokenPayload: JWTPayload;
+    if (typeof tokenResponseBody.id_token === "string") {
+      try {
+        fastify.log.info("Verifying ID token signature...");
+        idTokenPayload = await verifyJwtWithJose(
+          tokenResponseBody.id_token,
+          authFlowContext.jwksUri,
+        );
+      } catch (e) {
+        fastify.log.error({ error: e }, "ID token failed verification.");
+        return reply.code(400).view("callback.ejs", {
+          callbackTitle: "Callback failed",
+          errorMessage: "ID token did not match authorization server signature",
+          tokenResponseJson: undefined,
+          idTokenClaimsJson: undefined,
+        });
+      }
+    }
 
     if (authFlowContext.nonce) {
-      if (authFlowContext.nonce !== idTokenClaims?.nonce) {
+      if (authFlowContext.nonce !== idTokenPayload?.nonce) {
         return reply.code(400).view("callback.ejs", {
           callbackTitle: "Callback failed",
           errorMessage: "Invalid nonce",
           tokenResponseJson: undefined,
-          idTokenClaimsJson: idTokenClaims
-            ? JSON.stringify(idTokenClaims, null, 2)
+          idTokenClaimsJson: idTokenPayload
+            ? JSON.stringify(idTokenPayload, null, 2)
             : undefined,
         });
       }
@@ -132,8 +147,8 @@ export function registerCallbackRoute(
       callbackTitle: "Callback success",
       errorMessage: undefined,
       tokenResponseJson: JSON.stringify(tokenResponseForDisplay, null, 2),
-      idTokenClaimsJson: idTokenClaims
-        ? JSON.stringify(idTokenClaims, null, 2)
+      idTokenClaimsJson: idTokenPayload
+        ? JSON.stringify(idTokenPayload, null, 2)
         : undefined,
     });
   });

@@ -4,5 +4,6 @@ export type AuthFlowContext = {
   codeVerifier?: string;
   redirectUri: string;
   authorizationEndpoint: string;
+  jwksUri: string;
   tokenEndpoint: string;
 };
