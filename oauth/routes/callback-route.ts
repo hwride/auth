@@ -16,12 +16,24 @@ export function registerCallbackRoute(
     };
   }>("/callback", async function (request, reply) {
     const query = request.query;
+    const clientId = process.env.CLIENT_ID;
+    const authServerBaseUrl = authFlowContext.authServerBaseUrl;
+    const discoveryUrlUsed = authFlowContext.discoveryUrl;
+    const authorizationEndpointUsed = authFlowContext.authorizationEndpoint;
+    const tokenEndpointUsed = authFlowContext.tokenEndpoint;
+    const jwksUrlUsed = authFlowContext.jwksUri;
     fastify.log.info({ query }, "/callback - Authorization Response");
 
     if (!query.code) {
       return reply.code(400).view("callback.ejs", {
         callbackTitle: "Callback failed",
         errorMessage: "Missing code",
+        clientId,
+        authServerBaseUrl,
+        discoveryUrlUsed,
+        authorizationEndpointUsed,
+        tokenEndpointUsed,
+        jwksUrlUsed,
         tokenResponseJson: undefined,
         idTokenJson: undefined,
       });
@@ -34,13 +46,18 @@ export function registerCallbackRoute(
       return reply.code(400).view("callback.ejs", {
         callbackTitle: "Callback failed",
         errorMessage: "Invalid state",
+        clientId,
+        authServerBaseUrl,
+        discoveryUrlUsed,
+        authorizationEndpointUsed,
+        tokenEndpointUsed,
+        jwksUrlUsed,
         tokenResponseJson: undefined,
         idTokenJson: undefined,
       });
     }
 
     // OAuth, Access Token Request - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3
-    const clientId = process.env.CLIENT_ID;
     const clientSecret = process.env.CLIENT_SECRET;
     const tokenUrl = new URL(authFlowContext.tokenEndpoint);
     const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString(
@@ -87,6 +104,12 @@ export function registerCallbackRoute(
       return reply.code(502).view("callback.ejs", {
         callbackTitle: "Callback failed",
         errorMessage: "Token request failed",
+        clientId,
+        authServerBaseUrl,
+        discoveryUrlUsed,
+        authorizationEndpointUsed,
+        tokenEndpointUsed,
+        jwksUrlUsed,
         tokenResponseJson: formattedErrorResponseBody,
         idTokenJson: undefined,
       });
@@ -126,6 +149,12 @@ export function registerCallbackRoute(
         return reply.code(400).view("callback.ejs", {
           callbackTitle: "Callback failed",
           errorMessage: "ID token did not match authorization server signature",
+          clientId,
+          authServerBaseUrl,
+          discoveryUrlUsed,
+          authorizationEndpointUsed,
+          tokenEndpointUsed,
+          jwksUrlUsed,
           tokenResponseJson: undefined,
           idTokenJson: undefined,
         });
@@ -137,6 +166,12 @@ export function registerCallbackRoute(
         return reply.code(400).view("callback.ejs", {
           callbackTitle: "Callback failed",
           errorMessage: "Invalid nonce",
+          clientId,
+          authServerBaseUrl,
+          discoveryUrlUsed,
+          authorizationEndpointUsed,
+          tokenEndpointUsed,
+          jwksUrlUsed,
           tokenResponseJson: undefined,
           idTokenJson,
         });
@@ -156,6 +191,12 @@ export function registerCallbackRoute(
     return reply.view("callback.ejs", {
       callbackTitle: "Callback success",
       errorMessage: undefined,
+      clientId,
+      authServerBaseUrl,
+      discoveryUrlUsed,
+      authorizationEndpointUsed,
+      tokenEndpointUsed,
+      jwksUrlUsed,
       tokenResponseJson: JSON.stringify(tokenResponseForDisplay, null, 2),
       idTokenJson,
     });

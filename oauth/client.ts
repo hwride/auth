@@ -40,12 +40,11 @@ async function initServer() {
     root: path.join(__dirname, "templates"),
   });
 
-  registerHomeRoute(fastify);
-
   const authFlowContext = await initAuthFlowContext({
     fastify,
     redirectUri: "http://localhost:3000/callback",
   });
+  registerHomeRoute(fastify, authFlowContext);
   registerAuthorizeRoute(fastify, authFlowContext);
   registerCallbackRoute(fastify, authFlowContext);
 
@@ -76,7 +75,9 @@ async function initAuthFlowContext({
   );
 
   return {
+    authServerBaseUrl: authServerBase,
     redirectUri,
+    discoveryUrl: endpoints.discoveryUrl,
     authorizationEndpoint: endpoints.authorizationEndpoint,
     tokenEndpoint: endpoints.tokenEndpoint,
     jwksUri: endpoints.jwksUri,

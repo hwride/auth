@@ -1,7 +1,18 @@
 import type { FastifyInstance } from "fastify";
+import type { AuthFlowContext } from "./auth-flow-context.ts";
 
-export function registerHomeRoute(fastify: FastifyInstance) {
+export function registerHomeRoute(
+  fastify: FastifyInstance,
+  authFlowContext: AuthFlowContext,
+) {
   fastify.get("/", async function (request, reply) {
-    return reply.view("index.ejs");
+    return reply.view("index.ejs", {
+      authServerBaseUrl: authFlowContext.authServerBaseUrl,
+      discoveryUrlUsed: authFlowContext.discoveryUrl,
+      authorizationEndpointUsed: authFlowContext.authorizationEndpoint,
+      tokenEndpointUsed: authFlowContext.tokenEndpoint,
+      jwksUrlUsed: authFlowContext.jwksUri,
+      clientId: process.env.CLIENT_ID,
+    });
   });
 }

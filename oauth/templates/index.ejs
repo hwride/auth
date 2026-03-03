@@ -39,10 +39,71 @@
       .scopes-fieldset .additional-scopes-row {
         flex-basis: 100%;
       }
+
+      table {
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 0.25rem 0.5rem 0.25rem 0;
+        text-align: left;
+        vertical-align: top;
+      }
     </style>
   </head>
   <body>
     <h1>OAuth Client</h1>
+    <h2>Configuration</h2>
+
+    <table>
+      <tbody>
+        <tr>
+          <th>Client ID</th>
+          <td><%= clientId || "No client ID configured." %></td>
+        </tr>
+        <tr>
+          <th>Authorization server URL</th>
+          <td>
+            <% if (authServerBaseUrl) { %>
+            <a href="<%= authServerBaseUrl %>"><%= authServerBaseUrl %></a>
+            <% } else { %>
+            No authorization server base URL configured.
+            <% } %>
+          </td>
+        </tr>
+        <tr>
+          <th>Discovery URL</th>
+          <td>
+            <% if (discoveryUrlUsed) { %>
+            <a href="<%= discoveryUrlUsed %>"><%= discoveryUrlUsed %></a>
+            <% } else { %>
+            No discovery URL used (fallback endpoints configured).
+            <% } %>
+          </td>
+        </tr>
+        <tr>
+          <th>Authorization endpoint URL</th>
+          <td>
+            <a href="<%= authorizationEndpointUsed %>"
+              ><%= authorizationEndpointUsed %></a
+            >
+          </td>
+        </tr>
+        <tr>
+          <th>Token endpoint URL</th>
+          <td>
+            <a href="<%= tokenEndpointUsed %>"><%= tokenEndpointUsed %></a>
+          </td>
+        </tr>
+        <tr>
+          <th>JWKS URL</th>
+          <td><a href="<%= jwksUrlUsed %>"><%= jwksUrlUsed %></a></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Authorization request</h2>
     <div id="authorize-controls">
       <fieldset id="oauth-fieldset">
         <legend>OAuth 2.0</legend>
