@@ -35,6 +35,10 @@
       .scopes-fieldset label {
         gap: 0.25rem;
       }
+
+      .scopes-fieldset .additional-scopes-row {
+        flex-basis: 100%;
+      }
     </style>
   </head>
   <body>
@@ -51,6 +55,14 @@
               class="scope-checkbox"
             />
             offline_access
+          </label>
+          <label class="additional-scopes-row">
+            Additional scopes
+            <input
+              type="text"
+              id="additional-scopes-input"
+              placeholder="resource.read resource.write"
+            />
           </label>
         </fieldset>
         <label>
@@ -146,6 +158,9 @@
       const oauth = {
         stateCheckbox: document.getElementById("state-checkbox"),
         pkceCheckbox: document.getElementById("pkce-checkbox"),
+        additionalScopesInput: document.getElementById(
+          "additional-scopes-input",
+        ),
         scopeCheckboxes: Array.from(
           document.querySelectorAll("#oauth-scopes-fieldset .scope-checkbox"),
         ),
@@ -223,10 +238,16 @@
         const scopeCheckboxes = oidcEnabled
           ? [...oauth.scopeCheckboxes, ...oidc.scopeCheckboxes]
           : [...oauth.scopeCheckboxes];
-        const scope = scopeCheckboxes
+        const selectedScopes = scopeCheckboxes
           .filter((el) => el.checked)
-          .map((el) => el.value)
-          .join(" ");
+          .map((el) => el.value);
+        const additionalScopes = oauth.additionalScopesInput.value
+          .split(/\s+/)
+          .map((scope) => scope.trim())
+          .filter(Boolean);
+        const scope = [
+          ...new Set([...selectedScopes, ...additionalScopes]),
+        ].join(" ");
         if (scope) {
           queryParams.set("scope", scope);
         }
@@ -246,6 +267,11 @@
         addListeners(
           [...oauth.scopeCheckboxes, oauth.stateCheckbox, oauth.pkceCheckbox],
           "change",
+          updateAuthorizeLink,
+        );
+        addListeners(
+          [oauth.additionalScopesInput],
+          "input",
           updateAuthorizeLink,
         );
       }
