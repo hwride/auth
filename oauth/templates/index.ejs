@@ -118,7 +118,8 @@
             offline_access
           </label>
           <label class="additional-scopes-row">
-            Additional scopes
+            <input type="checkbox" id="additional-scopes-checkbox" />
+            Use additional scopes?
             <input
               type="text"
               id="additional-scopes-input"
@@ -230,6 +231,9 @@
         pkceCheckbox: document.getElementById("pkce-checkbox"),
         audienceCheckbox: document.getElementById("audience-checkbox"),
         audienceInput: document.getElementById("audience-input"),
+        additionalScopesCheckbox: document.getElementById(
+          "additional-scopes-checkbox",
+        ),
         additionalScopesInput: document.getElementById(
           "additional-scopes-input",
         ),
@@ -319,10 +323,12 @@
         const selectedScopes = scopeCheckboxes
           .filter((el) => el.checked)
           .map((el) => el.value);
-        const additionalScopes = oauth.additionalScopesInput.value
-          .split(/\s+/)
-          .map((scope) => scope.trim())
-          .filter(Boolean);
+        const additionalScopes = oauth.additionalScopesCheckbox.checked
+          ? oauth.additionalScopesInput.value
+              .split(/\s+/)
+              .map((scope) => scope.trim())
+              .filter(Boolean)
+          : [];
         const scope = [
           ...new Set([...selectedScopes, ...additionalScopes]),
         ].join(" ");
@@ -348,6 +354,7 @@
             oauth.stateCheckbox,
             oauth.pkceCheckbox,
             oauth.audienceCheckbox,
+            oauth.additionalScopesCheckbox,
           ],
           "change",
           updateAuthorizeLink,
