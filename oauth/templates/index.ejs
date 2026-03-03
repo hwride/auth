@@ -73,6 +73,15 @@
           <input type="checkbox" id="pkce-checkbox" checked />
           Use Proof Key for Code Exchange (PKCE)?
         </label>
+        <label>
+          <input type="checkbox" id="audience-checkbox" />
+          Use audience?
+          <input
+            type="text"
+            id="audience-input"
+            placeholder="https://api.example.com/"
+          />
+        </label>
       </fieldset>
       <fieldset id="oidc-fieldset">
         <legend>OpenID Connect 1.0</legend>
@@ -158,6 +167,8 @@
       const oauth = {
         stateCheckbox: document.getElementById("state-checkbox"),
         pkceCheckbox: document.getElementById("pkce-checkbox"),
+        audienceCheckbox: document.getElementById("audience-checkbox"),
+        audienceInput: document.getElementById("audience-input"),
         additionalScopesInput: document.getElementById(
           "additional-scopes-input",
         ),
@@ -207,6 +218,12 @@
         }
         if (oauth.pkceCheckbox.checked) {
           queryParams.set("use_pkce", "true");
+        }
+        if (oauth.audienceCheckbox.checked) {
+          const audience = oauth.audienceInput.value.trim();
+          if (audience) {
+            queryParams.set("audience", audience);
+          }
         }
 
         const oidcEnabled = oidc.openidScopeCheckbox.checked;
@@ -265,12 +282,17 @@
 
       function bindOAuthListeners() {
         addListeners(
-          [...oauth.scopeCheckboxes, oauth.stateCheckbox, oauth.pkceCheckbox],
+          [
+            ...oauth.scopeCheckboxes,
+            oauth.stateCheckbox,
+            oauth.pkceCheckbox,
+            oauth.audienceCheckbox,
+          ],
           "change",
           updateAuthorizeLink,
         );
         addListeners(
-          [oauth.additionalScopesInput],
+          [oauth.additionalScopesInput, oauth.audienceInput],
           "input",
           updateAuthorizeLink,
         );

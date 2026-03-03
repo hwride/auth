@@ -11,6 +11,7 @@ export function registerAuthorizeRoute(
   fastify.get<{
     Querystring: {
       scope?: string;
+      audience?: string;
       max_age?: string;
       prompt?: "none" | "login" | "consent" | "select_account";
       display?: "page" | "popup" | "touch" | "wap";
@@ -24,6 +25,7 @@ export function registerAuthorizeRoute(
     const clientId = process.env.CLIENT_ID;
     const {
       scope,
+      audience,
       max_age,
       prompt,
       display,
@@ -70,6 +72,9 @@ export function registerAuthorizeRoute(
 
     if (scope) {
       authorizeQueryParams.scope = scope.trim();
+    }
+    if (audience) {
+      authorizeQueryParams.audience = audience.trim();
     }
     if (max_age) {
       authorizeQueryParams.max_age = max_age.trim();

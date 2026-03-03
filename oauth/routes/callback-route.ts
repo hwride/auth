@@ -133,9 +133,7 @@ export function registerCallbackRoute(
 
     const tokenResponseForDisplay = {
       ...tokenResponseBody,
-      ...(tokenResponseBody.access_token
-        ? { access_token: "<present-but-redacted>" }
-        : {}),
+      access_token: tokenResponseBody.access_token,
     };
 
     fastify.log.info(
