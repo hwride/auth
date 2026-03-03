@@ -35,6 +35,7 @@ export function registerCallbackRoute(
         tokenEndpointUsed,
         jwksUrlUsed,
         tokenResponseJson: undefined,
+        accessTokenJson: undefined,
         idTokenJson: undefined,
       });
     }
@@ -53,6 +54,7 @@ export function registerCallbackRoute(
         tokenEndpointUsed,
         jwksUrlUsed,
         tokenResponseJson: undefined,
+        accessTokenJson: undefined,
         idTokenJson: undefined,
       });
     }
@@ -111,6 +113,7 @@ export function registerCallbackRoute(
         tokenEndpointUsed,
         jwksUrlUsed,
         tokenResponseJson: formattedErrorResponseBody,
+        accessTokenJson: undefined,
         idTokenJson: undefined,
       });
     }
@@ -121,6 +124,54 @@ export function registerCallbackRoute(
       string,
       unknown
     >;
+
+    let accessTokenJson: string | undefined;
+    if (typeof tokenResponseBody.access_token === "string") {
+      const accessToken = tokenResponseBody.access_token;
+      const isJwt = accessToken.split(".").length === 3;
+      if (isJwt) {
+        try {
+          const { payload, protectedHeader } = await verifyJwtWithJose(
+            accessToken,
+            authFlowContext.jwksUri,
+          );
+          accessTokenJson = JSON.stringify(
+            { header: protectedHeader, payload, jwtSignatureVerified: true },
+            null,
+            2,
+          );
+          fastify.log.info("Access token JWT verification succeeded");
+        } catch (error) {
+          fastify.log.error({ error }, "Access token failed verification.");
+          return reply.code(400).view("callback.ejs", {
+            callbackTitle: "Callback failed",
+            errorMessage:
+              "Access token did not match authorization server signature",
+            clientId,
+            authServerBaseUrl,
+            discoveryUrlUsed,
+            authorizationEndpointUsed,
+            tokenEndpointUsed,
+            jwksUrlUsed,
+            tokenResponseJson: undefined,
+            accessTokenJson: undefined,
+            idTokenJson: undefined,
+          });
+        }
+      } else {
+        fastify.log.info(
+          "Access token is opaque (not a JWT); skipping JWT verification",
+        );
+        accessTokenJson = JSON.stringify(
+          {
+            format: "opaque",
+            note: "Access token is not a JWT",
+          },
+          null,
+          2,
+        );
+      }
+    }
 
     let idTokenPayload: JWTPayload;
     let idTokenJson: string | undefined;
@@ -133,7 +184,7 @@ export function registerCallbackRoute(
         );
         idTokenPayload = payload;
         idTokenJson = JSON.stringify(
-          { header: protectedHeader, payload },
+          { header: protectedHeader, payload, jwtSignatureVerified: true },
           null,
           2,
         );
@@ -156,6 +207,7 @@ export function registerCallbackRoute(
           tokenEndpointUsed,
           jwksUrlUsed,
           tokenResponseJson: undefined,
+          accessTokenJson,
           idTokenJson: undefined,
         });
       }
@@ -173,6 +225,7 @@ export function registerCallbackRoute(
           tokenEndpointUsed,
           jwksUrlUsed,
           tokenResponseJson: undefined,
+          accessTokenJson,
           idTokenJson,
         });
       }
@@ -198,6 +251,7 @@ export function registerCallbackRoute(
       tokenEndpointUsed,
       jwksUrlUsed,
       tokenResponseJson: JSON.stringify(tokenResponseForDisplay, null, 2),
+      accessTokenJson,
       idTokenJson,
     });
   });

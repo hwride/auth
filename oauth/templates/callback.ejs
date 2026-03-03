@@ -84,6 +84,12 @@
     <h3>Token response</h3>
     <pre><%= tokenResponseJson %></pre>
     <% } %>
+    <% if (accessTokenJson) { %>
+    <h3>Access token</h3>
+    <pre><%= accessTokenJson %></pre>
+    <% } else { %>
+    <p>No access token present.</p>
+    <% } %>
     <% if (idTokenJson) { %>
     <h3>ID token</h3>
     <pre><%= idTokenJson %></pre>
