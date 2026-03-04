@@ -77,7 +77,11 @@ export function registerAuthorizeRoute(
       authorizeQueryParams.audience = audience.trim();
     }
     if (max_age) {
+      const parsedMaxAge = parseMaxAge(max_age);
+      authFlowContext.maxAge = parsedMaxAge;
       authorizeQueryParams.max_age = max_age.trim();
+    } else {
+      authFlowContext.maxAge = undefined;
     }
     if (prompt) {
       authorizeQueryParams.prompt = prompt;
@@ -103,4 +107,18 @@ export function registerAuthorizeRoute(
     );
     return reply.redirect(authorizeUrl.toString());
   });
+}
+
+function parseMaxAge(maxAgeValue: string): number | undefined {
+  const trimmedValue = maxAgeValue.trim();
+  if (trimmedValue.length === 0) {
+    return undefined;
+  }
+
+  const parsed = Number(trimmedValue);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return undefined;
+  }
+
+  return parsed;
 }

@@ -7,7 +7,7 @@ import type { AuthFlowContext } from "./routes/auth-flow-context.ts";
 import { registerHomeRoute } from "./routes/home-route.ts";
 import { registerAuthorizeRoute } from "./routes/authorize-route.ts";
 import { registerCallbackRoute } from "./routes/callback-route.ts";
-import { discoverAuthServerEndpoints } from "./utils/oidc-discovery.ts";
+import { authServerDiscovery } from "./utils/oidc-discovery.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,17 +69,15 @@ async function initAuthFlowContext({
     throw new Error("Missing AUTH_SERVER_BASE");
   }
 
-  const endpoints = await discoverAuthServerEndpoints(
-    authServerBase,
-    fastify.log,
-  );
+  const discovery = await authServerDiscovery(authServerBase, fastify.log);
 
   return {
     authServerBaseUrl: authServerBase,
+    issuer: discovery.issuer ?? authServerBase,
     redirectUri,
-    discoveryUrl: endpoints.discoveryUrl,
-    authorizationEndpoint: endpoints.authorizationEndpoint,
-    tokenEndpoint: endpoints.tokenEndpoint,
-    jwksUri: endpoints.jwksUri,
+    discoveryUrl: discovery.discoveryUrl,
+    authorizationEndpoint: discovery.authorizationEndpoint,
+    tokenEndpoint: discovery.tokenEndpoint,
+    jwksUri: discovery.jwksUri,
   };
 }

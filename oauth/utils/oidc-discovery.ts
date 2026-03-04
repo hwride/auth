@@ -1,9 +1,18 @@
 import type { FastifyBaseLogger } from "fastify";
 
-export async function discoverAuthServerEndpoints(
+type DiscoveryResult = {
+  kind?: "oidc" | "oauth" | "fallback";
+  issuer?: string;
+  authorizationEndpoint: string;
+  tokenEndpoint: string;
+  jwksUri: string | undefined;
+  discoveryUrl: string | undefined;
+};
+
+export async function authServerDiscovery(
   authServerBase: string,
   logger: FastifyBaseLogger,
-) {
+): Promise<DiscoveryResult> {
   const oidcDiscoveryUrl = new URL(
     "/.well-known/openid-configuration",
     authServerBase,
@@ -30,6 +39,7 @@ export async function discoverAuthServerEndpoints(
         continue;
       }
       const metadata = (await response.json()) as {
+        issuer?: string;
         authorization_endpoint?: string;
         token_endpoint?: string;
         jwks_uri?: string;
@@ -41,6 +51,7 @@ export async function discoverAuthServerEndpoints(
       ) {
         const result = {
           kind: target.kind,
+          issuer: metadata.issuer,
           authorizationEndpoint: metadata.authorization_endpoint,
           tokenEndpoint: metadata.token_endpoint,
           jwksUri: metadata.jwks_uri,
@@ -60,6 +71,8 @@ export async function discoverAuthServerEndpoints(
   }
 
   const fallback = {
+    kind: "fallback" as const,
+    issuer: undefined,
     authorizationEndpoint: new URL("/authorize", authServerBase).toString(),
     tokenEndpoint: new URL("/oauth/token", authServerBase).toString(),
     jwksUri: undefined,

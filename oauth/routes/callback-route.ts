@@ -22,6 +22,8 @@ type CallbackViewProps = {
   idTokenJson: string | undefined;
 };
 
+const AUTH_TIME_CLOCK_TOLERANCE_SECONDS = 30;
+
 export function registerCallbackRoute(
   fastify: FastifyInstance,
   authFlowContext: AuthFlowContext,
@@ -209,8 +211,7 @@ async function handleTokenResponse(args: {
 
   const idTokenResult = await verifyIdToken(
     tokenResponseBody,
-    args.authFlowContext.jwksUri,
-    args.authFlowContext.nonce,
+    args.authFlowContext,
     args.log,
   );
   if (idTokenResult.ok === false) {
@@ -307,10 +308,14 @@ async function verifyAccessToken(
   }
 }
 
+/**
+ * Validate an ID token received from an Authorization Server.
+ *
+ * https://openid.net/specs/openid-connect-core-1_0.html#IDTokenValidation
+ */
 async function verifyIdToken(
   tokenResponseBody: Record<string, unknown>,
-  jwksUri: string,
-  expectedNonce: string | undefined,
+  authFlowContext: AuthFlowContext,
   log: FastifyInstance["log"],
 ): Promise<
   | { ok: true; idTokenJson: string | undefined }
@@ -323,6 +328,7 @@ async function verifyIdToken(
     return { ok: false, errorMessage: "ID token is not a string" };
   }
 
+  // 3.1.3.7. ID Token Validation - 6 - Verify JWS signature
   let payload: JWTPayload;
   let protectedHeader: Awaited<
     ReturnType<typeof verifyJwtWithJose>
@@ -331,7 +337,7 @@ async function verifyIdToken(
     log.info("Verifying ID token signature...");
     ({ payload, protectedHeader } = await verifyJwtWithJose(
       tokenResponseBody.id_token,
-      jwksUri,
+      authFlowContext.jwksUri,
     ));
     log.info({ header: protectedHeader, payload }, "ID token");
   } catch (error) {
@@ -342,8 +348,76 @@ async function verifyIdToken(
     };
   }
 
-  if (expectedNonce && expectedNonce !== payload.nonce) {
-    return { ok: false, errorMessage: "Invalid nonce" };
+  // 3.1.3.7. ID Token Validation - 1 - Check encryption.
+
+  // 3.1.3.7. ID Token Validation - 2 - Check iss - issue should be the authorization server.
+  if (authFlowContext.issuer !== payload.iss) {
+    return {
+      ok: false,
+      errorMessage: `ID token iss "${payload.iss}" did not match discovered issuer "${authFlowContext.issuer}"`,
+    };
+  }
+
+  // 3.1.3.7. ID Token Validation - 3 - Check aud - audience should be the client ID.
+  if (process.env.CLIENT_ID !== payload.aud) {
+    return {
+      ok: false,
+      errorMessage: `ID token aud "${payload.aud}" did not match client ID "${process.env.CLIENT_ID}"`,
+    };
+  }
+
+  // 3.1.3.7. ID Token Validation - 4 - Check azp (authorized parties) according to extensions
+  // 3.1.3.7. ID Token Validation - 5 - Check azp - if azp is present, check it includes client ID
+  // 3.1.3.7. ID Token Validation - 6 - Verify JWS signature (above)
+
+  // 3.1.3.7. ID Token Validation - 7 - Check alg - should default to RS256 or match client request
+  if (protectedHeader.alg !== "RS256") {
+    return {
+      ok: false,
+      errorMessage: "ID token does use default RS256 for alg",
+    };
+  }
+  // 3.1.3.7. ID Token Validation - 8 - Verify alg if it is a MAC based algorithm (e.g. HS256, HS384, HS512)
+
+  // 3.1.3.7. ID Token Validation - 9 - Check exp - current time must be before exp
+  const nowInMs = new Date().getTime();
+  const tokenExpiryInMs = payload.exp * 1000;
+  if (nowInMs >= tokenExpiryInMs) {
+    return { ok: false, errorMessage: "ID token has expired" };
+  }
+
+  // 3.1.3.7. ID Token Validation - 10 - Check iat - clients may choose to reject tokens issued too long ago.
+
+  // 3.1.3.7. ID Token Validation - 11 - Check nonce
+  // Checks ID token matches the nonce we generated at the start of the authentication flow.
+  if (authFlowContext.nonce && authFlowContext.nonce !== payload.nonce) {
+    return { ok: false, errorMessage: "ID token has invalid nonce" };
+  }
+
+  // 3.1.3.7. ID Token Validation - 12 - Check acr
+  // If client requested acr (Authentication Context Class Reference), it should check its value is appropriate.
+
+  // 3.1.3.7. ID Token Validation - 13 - Check auth_time
+  // If the client requested auth_time either via max_age or another request, it should request re-authentication if
+  // too much time has elapsed since the last user authentication.
+  if (authFlowContext.maxAge !== undefined) {
+    if (payload.auth_time === undefined) {
+      log.warn(
+        "ID token missing auth_time for requested max_age. Note this is expected from Google.",
+      );
+    } else {
+      const authTimeSeconds = Number(payload.auth_time);
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const elapsedSeconds = nowSeconds - authTimeSeconds;
+      const allowedElapsedSeconds =
+        authFlowContext.maxAge + AUTH_TIME_CLOCK_TOLERANCE_SECONDS;
+      if (elapsedSeconds > allowedElapsedSeconds) {
+        return {
+          ok: false,
+          errorMessage: `Too much time has elapsed since last authentication. elapsed=${elapsedSeconds}s max_age=${authFlowContext.maxAge}s tolerance=${AUTH_TIME_CLOCK_TOLERANCE_SECONDS}s auth_time=${authTimeSeconds}`,
+        };
+      }
+    }
   }
 
   return {
