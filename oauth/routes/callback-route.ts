@@ -3,6 +3,17 @@ import type { AuthFlowContext } from "./auth-flow-context.ts";
 import { verifyJwtWithJose } from "../utils/jwt-verifier.ts";
 import type { JWTPayload } from "jose";
 
+type AccessTokenHandlingResult =
+  | { ok: true; accessTokenJson: string | undefined }
+  | { ok: false; errorMessage: string };
+
+type IdTokenHandlingResult =
+  | {
+      ok: true;
+      idTokenJson: string | undefined;
+    }
+  | { ok: false; errorMessage: string };
+
 export function registerCallbackRoute(
   fastify: FastifyInstance,
   authFlowContext: AuthFlowContext,
@@ -125,116 +136,50 @@ export function registerCallbackRoute(
       unknown
     >;
 
-    let accessTokenJson: string | undefined;
-    if (typeof tokenResponseBody.access_token === "string") {
-      const accessToken = tokenResponseBody.access_token;
-      const isJwt = accessToken.split(".").length === 3;
-      if (isJwt) {
-        try {
-          const { payload, protectedHeader } = await verifyJwtWithJose(
-            accessToken,
-            authFlowContext.jwksUri,
-          );
-          accessTokenJson = JSON.stringify(
-            { header: protectedHeader, payload, jwtSignatureVerified: true },
-            null,
-            2,
-          );
-          fastify.log.info("Access token JWT verification succeeded");
-        } catch (error) {
-          fastify.log.error({ error }, "Access token failed verification.");
-          return reply.code(400).view("callback.ejs", {
-            callbackTitle: "Callback failed",
-            errorMessage:
-              "Access token did not match authorization server signature",
-            clientId,
-            authServerBaseUrl,
-            discoveryUrlUsed,
-            authorizationEndpointUsed,
-            tokenEndpointUsed,
-            jwksUrlUsed,
-            tokenResponseJson: undefined,
-            accessTokenJson: undefined,
-            idTokenJson: undefined,
-          });
-        }
-      } else {
-        fastify.log.info(
-          "Access token is opaque (not a JWT); skipping JWT verification",
-        );
-        accessTokenJson = JSON.stringify(
-          {
-            format: "opaque",
-            note: "Access token is not a JWT",
-          },
-          null,
-          2,
-        );
-      }
+    const accessTokenResult = await handleAccessToken(
+      tokenResponseBody,
+      authFlowContext.jwksUri,
+      fastify.log,
+    );
+    if (accessTokenResult.ok === false) {
+      return reply.code(400).view("callback.ejs", {
+        callbackTitle: "Callback failed",
+        errorMessage: accessTokenResult.errorMessage,
+        clientId,
+        authServerBaseUrl,
+        discoveryUrlUsed,
+        authorizationEndpointUsed,
+        tokenEndpointUsed,
+        jwksUrlUsed,
+        tokenResponseJson: undefined,
+        accessTokenJson: undefined,
+        idTokenJson: undefined,
+      });
     }
+    const accessTokenJson = accessTokenResult.accessTokenJson;
 
-    let idTokenPayload: JWTPayload;
-    let idTokenJson: string | undefined;
-    if (typeof tokenResponseBody.id_token === "string") {
-      try {
-        fastify.log.info("Verifying ID token signature...");
-        const { payload, protectedHeader } = await verifyJwtWithJose(
-          tokenResponseBody.id_token,
-          authFlowContext.jwksUri,
-        );
-        idTokenPayload = payload;
-        idTokenJson = JSON.stringify(
-          { header: protectedHeader, payload, jwtSignatureVerified: true },
-          null,
-          2,
-        );
-        fastify.log.info(
-          {
-            header: protectedHeader,
-            payload: payload,
-          },
-          "ID token",
-        );
-      } catch (e) {
-        fastify.log.error({ error: e }, "ID token failed verification.");
-        return reply.code(400).view("callback.ejs", {
-          callbackTitle: "Callback failed",
-          errorMessage: "ID token did not match authorization server signature",
-          clientId,
-          authServerBaseUrl,
-          discoveryUrlUsed,
-          authorizationEndpointUsed,
-          tokenEndpointUsed,
-          jwksUrlUsed,
-          tokenResponseJson: undefined,
-          accessTokenJson,
-          idTokenJson: undefined,
-        });
-      }
+    const idTokenResult = await handleIdToken(
+      tokenResponseBody,
+      authFlowContext.jwksUri,
+      authFlowContext.nonce,
+      fastify.log,
+    );
+    if (idTokenResult.ok === false) {
+      return reply.code(400).view("callback.ejs", {
+        callbackTitle: "Callback failed",
+        errorMessage: idTokenResult.errorMessage,
+        clientId,
+        authServerBaseUrl,
+        discoveryUrlUsed,
+        authorizationEndpointUsed,
+        tokenEndpointUsed,
+        jwksUrlUsed,
+        tokenResponseJson: undefined,
+        accessTokenJson,
+        idTokenJson: undefined,
+      });
     }
-
-    if (authFlowContext.nonce) {
-      if (authFlowContext.nonce !== idTokenPayload?.nonce) {
-        return reply.code(400).view("callback.ejs", {
-          callbackTitle: "Callback failed",
-          errorMessage: "Invalid nonce",
-          clientId,
-          authServerBaseUrl,
-          discoveryUrlUsed,
-          authorizationEndpointUsed,
-          tokenEndpointUsed,
-          jwksUrlUsed,
-          tokenResponseJson: undefined,
-          accessTokenJson,
-          idTokenJson,
-        });
-      }
-    }
-
-    const tokenResponseForDisplay = {
-      ...tokenResponseBody,
-      access_token: tokenResponseBody.access_token,
-    };
+    const idTokenJson = idTokenResult.idTokenJson;
 
     fastify.log.info(
       { status: tokenResponse.status, body: tokenResponseBody },
@@ -250,9 +195,104 @@ export function registerCallbackRoute(
       authorizationEndpointUsed,
       tokenEndpointUsed,
       jwksUrlUsed,
-      tokenResponseJson: JSON.stringify(tokenResponseForDisplay, null, 2),
+      tokenResponseJson: JSON.stringify(tokenResponseBody, null, 2),
       accessTokenJson,
       idTokenJson,
     });
   });
+}
+
+async function handleAccessToken(
+  tokenResponseBody: Record<string, unknown>,
+  jwksUri: string,
+  log: FastifyInstance["log"],
+): Promise<AccessTokenHandlingResult> {
+  if (typeof tokenResponseBody.access_token !== "string") {
+    return { ok: true, accessTokenJson: undefined };
+  }
+
+  const accessToken = tokenResponseBody.access_token;
+  const isJwt = accessToken.split(".").length === 3;
+  if (!isJwt) {
+    log.info("Access token is opaque (not a JWT); skipping JWT verification");
+    return {
+      ok: true,
+      accessTokenJson: JSON.stringify(
+        {
+          format: "opaque",
+          note: "Access token is not a JWT",
+        },
+        null,
+        2,
+      ),
+    };
+  }
+
+  try {
+    const { payload, protectedHeader } = await verifyJwtWithJose(
+      accessToken,
+      jwksUri,
+    );
+    log.info("Access token JWT verification succeeded");
+    return {
+      ok: true,
+      accessTokenJson: JSON.stringify(
+        { header: protectedHeader, payload, jwtSignatureVerified: true },
+        null,
+        2,
+      ),
+    };
+  } catch (error) {
+    log.error({ error }, "Access token failed verification.");
+    return {
+      ok: false,
+      errorMessage: "Access token did not match authorization server signature",
+    };
+  }
+}
+
+async function handleIdToken(
+  tokenResponseBody: Record<string, unknown>,
+  jwksUri: string,
+  expectedNonce: string | undefined,
+  log: FastifyInstance["log"],
+): Promise<IdTokenHandlingResult> {
+  if (typeof tokenResponseBody.id_token !== "string") {
+    if (expectedNonce) {
+      return { ok: false, errorMessage: "Invalid nonce" };
+    }
+    return { ok: true, idTokenJson: undefined };
+  }
+
+  let payload: JWTPayload;
+  let protectedHeader: Awaited<
+    ReturnType<typeof verifyJwtWithJose>
+  >["protectedHeader"];
+  try {
+    log.info("Verifying ID token signature...");
+    ({ payload, protectedHeader } = await verifyJwtWithJose(
+      tokenResponseBody.id_token,
+      jwksUri,
+    ));
+    log.info({ header: protectedHeader, payload }, "ID token");
+  } catch (error) {
+    log.error({ error }, "ID token failed verification.");
+    return {
+      ok: false,
+      errorMessage: "ID token did not match authorization server signature",
+    };
+  }
+
+  if (expectedNonce && expectedNonce !== payload.nonce) {
+    return { ok: false, errorMessage: "Invalid nonce" };
+  }
+
+  return {
+    ok: true,
+    idTokenJson: JSON.stringify(
+      { header: protectedHeader, payload, jwtSignatureVerified: true },
+      null,
+      2,
+    ),
+  };
 }
