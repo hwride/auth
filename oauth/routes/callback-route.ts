@@ -3,6 +3,11 @@ import type { AuthFlowContext } from "./auth-flow-context.ts";
 import { verifyJwtWithJose } from "../utils/jwt-verifier.ts";
 import type { JWTPayload } from "jose";
 
+type CallbackQuery = {
+  code?: string;
+  state?: string;
+};
+
 type CallbackViewProps = {
   callbackTitle: "Callback failed" | "Callback success";
   errorMessage: string | undefined;
@@ -24,145 +29,242 @@ export function registerCallbackRoute(
   // OAuth, Authorization Code Grant, Authorization Response - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2
   // OIDC, Authorization Code Grant, Successful Authentication Response - https://openid.net/specs/openid-connect-core-1_0-final.html#AuthResponse
   fastify.get<{
-    Querystring: {
-      code?: string;
-      state?: string;
-    };
+    Querystring: CallbackQuery;
   }>("/callback", async function (request, reply) {
     const query = request.query;
     const callbackViewProps = getDefaultCallbackViewProps(authFlowContext);
-    const clientId = callbackViewProps.clientId;
+
     fastify.log.info({ query }, "/callback - Authorization Response");
 
-    if (!query.code) {
+    const validationResult = validateCallbackAuthorizationResponse(
+      query,
+      authFlowContext,
+    );
+    if (validationResult.ok === false) {
       return renderCallbackFailure(reply, 400, {
         ...callbackViewProps,
-        errorMessage: "Missing code",
+        errorMessage: validationResult.errorMessage,
       });
     }
 
-    if (
-      authFlowContext.state &&
-      (!query.state || query.state !== authFlowContext.state)
-    ) {
-      return renderCallbackFailure(reply, 400, {
-        ...callbackViewProps,
-        errorMessage: "Invalid state",
-      });
-    }
-
-    // OAuth, Access Token Request - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3
-    const clientSecret = process.env.CLIENT_SECRET;
-    const tokenUrl = new URL(authFlowContext.tokenEndpoint);
-    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString(
-      "base64",
-    );
-    const tokenRequestBody = new URLSearchParams({
-      grant_type: "authorization_code",
-      code: query.code,
-      redirect_uri: authFlowContext.redirectUri,
-    });
-    if (authFlowContext.codeVerifier) {
-      tokenRequestBody.set("code_verifier", authFlowContext.codeVerifier);
-    }
-
-    fastify.log.info(
-      { url: tokenUrl, body: tokenRequestBody.toString() },
-      "/callback - Access Token Request",
-    );
-    const tokenResponse = await fetch(tokenUrl.toString(), {
-      method: "POST",
-      headers: {
-        authorization: `Basic ${basicAuth}`,
-        "content-type": "application/x-www-form-urlencoded",
-      },
-      body: tokenRequestBody.toString(),
+    const tokenResponse = await makeTokenRequest({
+      code: validationResult.code,
+      authFlowContext,
+      clientId: process.env.CLIENT_ID,
+      clientSecret: process.env.CLIENT_SECRET,
+      log: fastify.log,
     });
 
-    if (!tokenResponse.ok) {
-      const tokenResponseBody = await tokenResponse.text();
-      let formattedErrorResponseBody = tokenResponseBody;
-      try {
-        formattedErrorResponseBody = JSON.stringify(
-          JSON.parse(tokenResponseBody),
-          null,
-          2,
-        );
-      } catch {
-        // Keep raw body when response is not JSON.
-      }
-      fastify.log.error(
-        { status: tokenResponse.status, body: tokenResponseBody },
-        "/callback - Access Token Request failed",
+    const tokenResponseResult = await handleTokenResponse({
+      tokenResponse,
+      callbackViewProps,
+      authFlowContext,
+      log: fastify.log,
+    });
+    if (tokenResponseResult.ok === false) {
+      return renderCallbackFailure(
+        reply,
+        tokenResponseResult.statusCode,
+        tokenResponseResult.callbackViewProps,
       );
-      return renderCallbackFailure(reply, 502, {
-        ...callbackViewProps,
-        errorMessage: "Token request failed",
-        tokenResponseJson: formattedErrorResponseBody,
-      });
     }
 
-    // OAuth, Access Token Response - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.4
-    // OIDC, Token Response Validation - https://openid.net/specs/openid-connect-core-1_0-final.html#TokenResponseValidation
-    const tokenResponseBody = (await tokenResponse.json()) as Record<
-      string,
-      unknown
-    >;
-
-    const accessTokenResult = await handleAccessToken(
-      tokenResponseBody,
-      authFlowContext.jwksUri,
-      fastify.log,
-    );
-    if (accessTokenResult.ok === false) {
-      return renderCallbackFailure(reply, 400, {
-        ...callbackViewProps,
-        errorMessage: accessTokenResult.errorMessage,
-      });
-    }
-    const accessTokenJson = accessTokenResult.accessTokenJson;
-
-    const idTokenResult = await handleIdToken(
-      tokenResponseBody,
-      authFlowContext.jwksUri,
-      authFlowContext.nonce,
-      fastify.log,
-    );
-    if (idTokenResult.ok === false) {
-      return renderCallbackFailure(reply, 400, {
-        ...callbackViewProps,
-        errorMessage: idTokenResult.errorMessage,
-        accessTokenJson,
-      });
-    }
-    const idTokenJson = idTokenResult.idTokenJson;
-
-    fastify.log.info(
-      { status: tokenResponse.status, body: tokenResponseBody },
-      "/callback - Access Token Response",
-    );
-
-    return renderCallbackSuccess(reply, {
-      ...callbackViewProps,
-      tokenResponseJson: JSON.stringify(tokenResponseBody, null, 2),
-      accessTokenJson,
-      idTokenJson,
-    });
+    return renderCallbackSuccess(reply, tokenResponseResult.callbackViewProps);
   });
 }
 
-async function handleAccessToken(
+function getDefaultCallbackViewProps(
+  authFlowContext: AuthFlowContext,
+): CallbackViewProps {
+  return {
+    callbackTitle: "Callback failed",
+    errorMessage: undefined,
+    clientId: process.env.CLIENT_ID,
+    authServerBaseUrl: authFlowContext.authServerBaseUrl,
+    discoveryUrlUsed: authFlowContext.discoveryUrl,
+    authorizationEndpointUsed: authFlowContext.authorizationEndpoint,
+    tokenEndpointUsed: authFlowContext.tokenEndpoint,
+    jwksUrlUsed: authFlowContext.jwksUri,
+    tokenResponseJson: undefined,
+    accessTokenJson: undefined,
+    idTokenJson: undefined,
+  };
+}
+
+function validateCallbackAuthorizationResponse(
+  query: CallbackQuery,
+  authFlowContext: AuthFlowContext,
+): { ok: true; code: string } | { ok: false; errorMessage: string } {
+  if (!query.code) {
+    return { ok: false, errorMessage: "Missing code" };
+  }
+
+  const expectedState = authFlowContext.state;
+  if (expectedState && (!query.state || query.state !== expectedState)) {
+    return { ok: false, errorMessage: "Invalid state" };
+  }
+
+  return { ok: true, code: query.code };
+}
+
+async function makeTokenRequest(args: {
+  code: string;
+  authFlowContext: AuthFlowContext;
+  clientId: string | undefined;
+  clientSecret: string | undefined;
+  log: FastifyInstance["log"];
+}): Promise<Response> {
+  // OAuth, Access Token Request - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3
+  const tokenUrl = new URL(args.authFlowContext.tokenEndpoint);
+  const basicAuth = Buffer.from(
+    `${args.clientId}:${args.clientSecret}`,
+  ).toString("base64");
+
+  const tokenRequestBody = new URLSearchParams({
+    grant_type: "authorization_code",
+    code: args.code,
+    redirect_uri: args.authFlowContext.redirectUri,
+  });
+  if (args.authFlowContext.codeVerifier) {
+    tokenRequestBody.set("code_verifier", args.authFlowContext.codeVerifier);
+  }
+
+  args.log.info(
+    { url: tokenUrl, body: tokenRequestBody.toString() },
+    "/callback - Access Token Request",
+  );
+
+  return fetch(tokenUrl.toString(), {
+    method: "POST",
+    headers: {
+      authorization: `Basic ${basicAuth}`,
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: tokenRequestBody.toString(),
+  });
+}
+
+async function handleTokenResponse(args: {
+  tokenResponse: Response;
+  callbackViewProps: CallbackViewProps;
+  authFlowContext: AuthFlowContext;
+  log: FastifyInstance["log"];
+}): Promise<
+  | { ok: true; callbackViewProps: CallbackViewProps }
+  | { ok: false; statusCode: number; callbackViewProps: CallbackViewProps }
+> {
+  if (!args.tokenResponse.ok) {
+    const tokenResponseBody = await args.tokenResponse.text();
+    let formattedErrorResponseBody: string;
+    try {
+      formattedErrorResponseBody = JSON.stringify(
+        JSON.parse(tokenResponseBody),
+        null,
+        2,
+      );
+    } catch {
+      // Keep raw body when response is not JSON.
+      formattedErrorResponseBody = tokenResponseBody;
+    }
+
+    args.log.error(
+      { status: args.tokenResponse.status, body: tokenResponseBody },
+      "/callback - Access Token Request failed",
+    );
+
+    return {
+      ok: false,
+      statusCode: 502,
+      callbackViewProps: {
+        ...args.callbackViewProps,
+        errorMessage: "Token request failed",
+        tokenResponseJson: formattedErrorResponseBody,
+      },
+    };
+  }
+
+  // OAuth, Access Token Response - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.4
+  // OIDC, Token Response Validation - https://openid.net/specs/openid-connect-core-1_0-final.html#TokenResponseValidation
+  const tokenResponseBody = (await args.tokenResponse.json()) as Record<
+    string,
+    unknown
+  >;
+
+  const accessTokenResult = await verifyAccessToken(
+    tokenResponseBody,
+    args.authFlowContext.jwksUri,
+    args.log,
+  );
+  if (accessTokenResult.ok === false) {
+    return {
+      ok: false,
+      statusCode: 400,
+      callbackViewProps: {
+        ...args.callbackViewProps,
+        errorMessage: accessTokenResult.errorMessage,
+      },
+    };
+  }
+  const accessTokenJson = accessTokenResult.accessTokenJson;
+
+  const idTokenResult = await verifyIdToken(
+    tokenResponseBody,
+    args.authFlowContext.jwksUri,
+    args.authFlowContext.nonce,
+    args.log,
+  );
+  if (idTokenResult.ok === false) {
+    return {
+      ok: false,
+      statusCode: 400,
+      callbackViewProps: {
+        ...args.callbackViewProps,
+        errorMessage: idTokenResult.errorMessage,
+        accessTokenJson,
+      },
+    };
+  }
+
+  args.log.info(
+    { status: args.tokenResponse.status, body: tokenResponseBody },
+    "/callback - Access Token Response",
+  );
+
+  return {
+    ok: true,
+    callbackViewProps: {
+      ...args.callbackViewProps,
+      errorMessage: undefined,
+      tokenResponseJson: JSON.stringify(tokenResponseBody, null, 2),
+      accessTokenJson,
+      idTokenJson: idTokenResult.idTokenJson,
+    },
+  };
+}
+
+async function verifyAccessToken(
   tokenResponseBody: Record<string, unknown>,
   jwksUri: string,
   log: FastifyInstance["log"],
 ): Promise<
-  { ok: true; accessTokenJson: string | undefined } | {
-    ok: false;
-    errorMessage: string;
-  }
+  | { ok: true; accessTokenJson: string | undefined }
+  | {
+      ok: false;
+      errorMessage: string;
+    }
 > {
   if (typeof tokenResponseBody.access_token !== "string") {
-    return { ok: true, accessTokenJson: undefined };
+    return {
+      ok: true,
+      accessTokenJson: JSON.stringify(
+        {
+          format: "opaque",
+          note: "Access token is not a JWT or a string",
+        },
+        null,
+        2,
+      ),
+    };
   }
 
   const accessToken = tokenResponseBody.access_token;
@@ -205,22 +307,20 @@ async function handleAccessToken(
   }
 }
 
-async function handleIdToken(
+async function verifyIdToken(
   tokenResponseBody: Record<string, unknown>,
   jwksUri: string,
   expectedNonce: string | undefined,
   log: FastifyInstance["log"],
 ): Promise<
-  { ok: true; idTokenJson: string | undefined } | {
-    ok: false;
-    errorMessage: string;
-  }
+  | { ok: true; idTokenJson: string | undefined }
+  | {
+      ok: false;
+      errorMessage: string;
+    }
 > {
   if (typeof tokenResponseBody.id_token !== "string") {
-    if (expectedNonce) {
-      return { ok: false, errorMessage: "Invalid nonce" };
-    }
-    return { ok: true, idTokenJson: undefined };
+    return { ok: false, errorMessage: "ID token is not a string" };
   }
 
   let payload: JWTPayload;
@@ -253,24 +353,6 @@ async function handleIdToken(
       null,
       2,
     ),
-  };
-}
-
-function getDefaultCallbackViewProps(
-  authFlowContext: AuthFlowContext,
-): CallbackViewProps {
-  return {
-    callbackTitle: "Callback failed",
-    errorMessage: undefined,
-    clientId: process.env.CLIENT_ID,
-    authServerBaseUrl: authFlowContext.authServerBaseUrl,
-    discoveryUrlUsed: authFlowContext.discoveryUrl,
-    authorizationEndpointUsed: authFlowContext.authorizationEndpoint,
-    tokenEndpointUsed: authFlowContext.tokenEndpoint,
-    jwksUrlUsed: authFlowContext.jwksUri,
-    tokenResponseJson: undefined,
-    accessTokenJson: undefined,
-    idTokenJson: undefined,
   };
 }
 
