@@ -1,18 +1,21 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import type { AuthFlowContext } from "./auth-flow-context.ts";
 import { verifyJwtWithJose } from "../utils/jwt-verifier.ts";
 import type { JWTPayload } from "jose";
 
-type AccessTokenHandlingResult =
-  | { ok: true; accessTokenJson: string | undefined }
-  | { ok: false; errorMessage: string };
-
-type IdTokenHandlingResult =
-  | {
-      ok: true;
-      idTokenJson: string | undefined;
-    }
-  | { ok: false; errorMessage: string };
+type CallbackViewProps = {
+  callbackTitle: "Callback failed" | "Callback success";
+  errorMessage: string | undefined;
+  clientId: string | undefined;
+  authServerBaseUrl: string;
+  discoveryUrlUsed: string;
+  authorizationEndpointUsed: string;
+  tokenEndpointUsed: string;
+  jwksUrlUsed: string;
+  tokenResponseJson: string | undefined;
+  accessTokenJson: string | undefined;
+  idTokenJson: string | undefined;
+};
 
 export function registerCallbackRoute(
   fastify: FastifyInstance,
@@ -27,27 +30,14 @@ export function registerCallbackRoute(
     };
   }>("/callback", async function (request, reply) {
     const query = request.query;
-    const clientId = process.env.CLIENT_ID;
-    const authServerBaseUrl = authFlowContext.authServerBaseUrl;
-    const discoveryUrlUsed = authFlowContext.discoveryUrl;
-    const authorizationEndpointUsed = authFlowContext.authorizationEndpoint;
-    const tokenEndpointUsed = authFlowContext.tokenEndpoint;
-    const jwksUrlUsed = authFlowContext.jwksUri;
+    const callbackViewProps = getDefaultCallbackViewProps(authFlowContext);
+    const clientId = callbackViewProps.clientId;
     fastify.log.info({ query }, "/callback - Authorization Response");
 
     if (!query.code) {
-      return reply.code(400).view("callback.ejs", {
-        callbackTitle: "Callback failed",
+      return renderCallbackFailure(reply, 400, {
+        ...callbackViewProps,
         errorMessage: "Missing code",
-        clientId,
-        authServerBaseUrl,
-        discoveryUrlUsed,
-        authorizationEndpointUsed,
-        tokenEndpointUsed,
-        jwksUrlUsed,
-        tokenResponseJson: undefined,
-        accessTokenJson: undefined,
-        idTokenJson: undefined,
       });
     }
 
@@ -55,18 +45,9 @@ export function registerCallbackRoute(
       authFlowContext.state &&
       (!query.state || query.state !== authFlowContext.state)
     ) {
-      return reply.code(400).view("callback.ejs", {
-        callbackTitle: "Callback failed",
+      return renderCallbackFailure(reply, 400, {
+        ...callbackViewProps,
         errorMessage: "Invalid state",
-        clientId,
-        authServerBaseUrl,
-        discoveryUrlUsed,
-        authorizationEndpointUsed,
-        tokenEndpointUsed,
-        jwksUrlUsed,
-        tokenResponseJson: undefined,
-        accessTokenJson: undefined,
-        idTokenJson: undefined,
       });
     }
 
@@ -114,18 +95,10 @@ export function registerCallbackRoute(
         { status: tokenResponse.status, body: tokenResponseBody },
         "/callback - Access Token Request failed",
       );
-      return reply.code(502).view("callback.ejs", {
-        callbackTitle: "Callback failed",
+      return renderCallbackFailure(reply, 502, {
+        ...callbackViewProps,
         errorMessage: "Token request failed",
-        clientId,
-        authServerBaseUrl,
-        discoveryUrlUsed,
-        authorizationEndpointUsed,
-        tokenEndpointUsed,
-        jwksUrlUsed,
         tokenResponseJson: formattedErrorResponseBody,
-        accessTokenJson: undefined,
-        idTokenJson: undefined,
       });
     }
 
@@ -142,18 +115,9 @@ export function registerCallbackRoute(
       fastify.log,
     );
     if (accessTokenResult.ok === false) {
-      return reply.code(400).view("callback.ejs", {
-        callbackTitle: "Callback failed",
+      return renderCallbackFailure(reply, 400, {
+        ...callbackViewProps,
         errorMessage: accessTokenResult.errorMessage,
-        clientId,
-        authServerBaseUrl,
-        discoveryUrlUsed,
-        authorizationEndpointUsed,
-        tokenEndpointUsed,
-        jwksUrlUsed,
-        tokenResponseJson: undefined,
-        accessTokenJson: undefined,
-        idTokenJson: undefined,
       });
     }
     const accessTokenJson = accessTokenResult.accessTokenJson;
@@ -165,18 +129,10 @@ export function registerCallbackRoute(
       fastify.log,
     );
     if (idTokenResult.ok === false) {
-      return reply.code(400).view("callback.ejs", {
-        callbackTitle: "Callback failed",
+      return renderCallbackFailure(reply, 400, {
+        ...callbackViewProps,
         errorMessage: idTokenResult.errorMessage,
-        clientId,
-        authServerBaseUrl,
-        discoveryUrlUsed,
-        authorizationEndpointUsed,
-        tokenEndpointUsed,
-        jwksUrlUsed,
-        tokenResponseJson: undefined,
         accessTokenJson,
-        idTokenJson: undefined,
       });
     }
     const idTokenJson = idTokenResult.idTokenJson;
@@ -186,15 +142,8 @@ export function registerCallbackRoute(
       "/callback - Access Token Response",
     );
 
-    return reply.view("callback.ejs", {
-      callbackTitle: "Callback success",
-      errorMessage: undefined,
-      clientId,
-      authServerBaseUrl,
-      discoveryUrlUsed,
-      authorizationEndpointUsed,
-      tokenEndpointUsed,
-      jwksUrlUsed,
+    return renderCallbackSuccess(reply, {
+      ...callbackViewProps,
       tokenResponseJson: JSON.stringify(tokenResponseBody, null, 2),
       accessTokenJson,
       idTokenJson,
@@ -206,7 +155,12 @@ async function handleAccessToken(
   tokenResponseBody: Record<string, unknown>,
   jwksUri: string,
   log: FastifyInstance["log"],
-): Promise<AccessTokenHandlingResult> {
+): Promise<
+  { ok: true; accessTokenJson: string | undefined } | {
+    ok: false;
+    errorMessage: string;
+  }
+> {
   if (typeof tokenResponseBody.access_token !== "string") {
     return { ok: true, accessTokenJson: undefined };
   }
@@ -256,7 +210,12 @@ async function handleIdToken(
   jwksUri: string,
   expectedNonce: string | undefined,
   log: FastifyInstance["log"],
-): Promise<IdTokenHandlingResult> {
+): Promise<
+  { ok: true; idTokenJson: string | undefined } | {
+    ok: false;
+    errorMessage: string;
+  }
+> {
   if (typeof tokenResponseBody.id_token !== "string") {
     if (expectedNonce) {
       return { ok: false, errorMessage: "Invalid nonce" };
@@ -295,4 +254,44 @@ async function handleIdToken(
       2,
     ),
   };
+}
+
+function getDefaultCallbackViewProps(
+  authFlowContext: AuthFlowContext,
+): CallbackViewProps {
+  return {
+    callbackTitle: "Callback failed",
+    errorMessage: undefined,
+    clientId: process.env.CLIENT_ID,
+    authServerBaseUrl: authFlowContext.authServerBaseUrl,
+    discoveryUrlUsed: authFlowContext.discoveryUrl,
+    authorizationEndpointUsed: authFlowContext.authorizationEndpoint,
+    tokenEndpointUsed: authFlowContext.tokenEndpoint,
+    jwksUrlUsed: authFlowContext.jwksUri,
+    tokenResponseJson: undefined,
+    accessTokenJson: undefined,
+    idTokenJson: undefined,
+  };
+}
+
+function renderCallbackFailure(
+  reply: FastifyReply,
+  statusCode: number,
+  callbackViewProps: CallbackViewProps,
+) {
+  return reply.code(statusCode).view("callback.ejs", {
+    ...callbackViewProps,
+    callbackTitle: "Callback failed",
+  });
+}
+
+function renderCallbackSuccess(
+  reply: FastifyReply,
+  callbackViewProps: CallbackViewProps,
+) {
+  return reply.view("callback.ejs", {
+    ...callbackViewProps,
+    callbackTitle: "Callback success",
+    errorMessage: undefined,
+  });
 }
