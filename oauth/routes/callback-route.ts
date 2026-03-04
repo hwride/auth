@@ -23,6 +23,7 @@ type CallbackViewProps = {
 };
 
 const AUTH_TIME_CLOCK_TOLERANCE_SECONDS = 30;
+const MAX_ID_TOKEN_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 export function registerCallbackRoute(
   fastify: FastifyInstance,
@@ -380,13 +381,21 @@ async function verifyIdToken(
   // 3.1.3.7. ID Token Validation - 8 - Verify alg if it is a MAC based algorithm (e.g. HS256, HS384, HS512)
 
   // 3.1.3.7. ID Token Validation - 9 - Check exp - current time must be before exp
-  const nowInMs = new Date().getTime();
-  const tokenExpiryInMs = payload.exp * 1000;
-  if (nowInMs >= tokenExpiryInMs) {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const tokenExpirySeconds = Number(payload.exp);
+  if (nowSeconds >= tokenExpirySeconds) {
     return { ok: false, errorMessage: "ID token has expired" };
   }
 
   // 3.1.3.7. ID Token Validation - 10 - Check iat - clients may choose to reject tokens issued too long ago.
+  const issuedAtSeconds = Number(payload.iat);
+  const secondsSinceIssued = nowSeconds - issuedAtSeconds;
+  if (secondsSinceIssued > MAX_ID_TOKEN_AGE_SECONDS) {
+    return {
+      ok: false,
+      errorMessage: `ID token is too old. age=${secondsSinceIssued}s max_allowed=${MAX_ID_TOKEN_AGE_SECONDS}s`,
+    };
+  }
 
   // 3.1.3.7. ID Token Validation - 11 - Check nonce
   // Checks ID token matches the nonce we generated at the start of the authentication flow.
@@ -407,7 +416,6 @@ async function verifyIdToken(
       );
     } else {
       const authTimeSeconds = Number(payload.auth_time);
-      const nowSeconds = Math.floor(Date.now() / 1000);
       const elapsedSeconds = nowSeconds - authTimeSeconds;
       const allowedElapsedSeconds =
         authFlowContext.maxAge + AUTH_TIME_CLOCK_TOLERANCE_SECONDS;
