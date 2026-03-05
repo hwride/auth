@@ -351,7 +351,7 @@ async function verifyIdToken(
 
   // 3.1.3.7. ID Token Validation - 1 - Check encryption.
 
-  // 3.1.3.7. ID Token Validation - 2 - Check iss - issue should be the authorization server.
+  // 3.1.3.7. ID Token Validation - 2 - Check iss - issuer should be the authorization server.
   if (authFlowContext.issuer !== payload.iss) {
     return {
       ok: false,
