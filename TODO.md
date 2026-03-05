@@ -1,10 +1,7 @@
 # To do
 
-- [ ] PKCE checkbox
-- [ ] Session to remember keys
+- [ ] Session to remember state/tokens
 - [ ] Call to protected resource with access token
-- [ ] More checks as required by spec
-- [ ] Maybe verification of ID token with JOSE?
+- [ ] Look at https://datatracker.ietf.org/doc/html/rfc9068 JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens
+- [ ] Actually use refresh tokens
 - [ ] Maybe other flows?
-- [ ] Extra custom scopes
-- [ ] Refresh tokens
