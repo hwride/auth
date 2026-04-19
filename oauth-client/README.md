@@ -9,4 +9,4 @@ An OAuth Client. Mainly implemented for testing and learning. Not for use in pro
 - `CLIENT_ID`
 - `CLIENT_SECRET`
 2. Start the development server:
-- `npm run dev`
+- `npm rasdfasdfun dev`
