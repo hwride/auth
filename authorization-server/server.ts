@@ -1,5 +1,9 @@
 import Fastify from "fastify";
 import {
+  createAuthorizationCodeStore,
+  type AuthorizationCodeStore,
+} from "./authorization-code-store.ts";
+import {
   getServerConfig,
   type ServerConfig,
 } from "./config/server-config.ts";
@@ -23,7 +27,10 @@ async function main() {
   }
 }
 
-export function createServer(serverConfig: ServerConfig = getServerConfig()) {
+export function createServer(
+  serverConfig: ServerConfig = getServerConfig(),
+  authorizationCodeStore: AuthorizationCodeStore = createAuthorizationCodeStore(),
+) {
   const fastify = Fastify({
     logger: {
       transport: {
@@ -38,7 +45,7 @@ export function createServer(serverConfig: ServerConfig = getServerConfig()) {
   });
 
   registerOpenIdConfigurationRoute(fastify, serverConfig);
-  registerAuthorizationRoute(fastify, serverConfig);
+  registerAuthorizationRoute(fastify, serverConfig, authorizationCodeStore);
   registerJwksRoute(fastify);
 
   return fastify;

@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  createAuthorizationCodeStore,
+  type AuthorizationCodeStore,
+} from "../authorization-code-store.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 import { createServer } from "../server.ts";
 
@@ -10,20 +14,29 @@ const defaultServerConfig: ServerConfig = {
   jwksUri: "https://issuer.example.test/.well-known/jwks.json",
 };
 
-test("GET authorization endpoint returns not implemented for response_type=code", async function () {
-  const response = await fetchAuthorizationEndpoint({
-    client_id: "test-client-id",
-    response_type: "code",
-    redirect_uri: "https://client.example.test/callback",
-  });
-
-  assert.equal(response.status, 501);
-  assert.equal(
-    response.headers.get("content-type"),
-    "application/json; charset=utf-8",
+test("GET authorization endpoint redirects with an authorization code", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const response = await fetchAuthorizationEndpoint(
+    {
+      client_id: "test-client-id",
+      response_type: "code",
+      redirect_uri: "https://client.example.test/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
   );
-  assert.deepEqual(await response.json(), {
-    error: "not_implemented",
+
+  assert.equal(response.status, 302);
+
+  const redirectUrl = getRedirectUrl(response);
+  const code = redirectUrl.searchParams.get("code");
+
+  assert.equal(redirectUrl.origin, "https://client.example.test");
+  assert.equal(redirectUrl.pathname, "/callback");
+  assert.notEqual(code, null);
+  assert.deepEqual(authorizationCodeStore.get(code), {
+    clientId: "test-client-id",
+    redirectUri: "https://client.example.test/callback",
   });
 });
 
@@ -68,6 +81,7 @@ test("GET authorization endpoint rejects unsupported response_type", async funct
 });
 
 test("GET authorization endpoint uses the configured endpoint path", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
   const response = await fetchAuthorizationEndpoint(
     {
       client_id: "test-client-id",
@@ -78,19 +92,27 @@ test("GET authorization endpoint uses the configured endpoint path", async funct
       ...defaultServerConfig,
       authorizationEndpoint: "https://login.example.test/oauth2/authorize",
     },
+    authorizationCodeStore,
   );
 
-  assert.equal(response.status, 501);
-  assert.deepEqual(await response.json(), {
-    error: "not_implemented",
+  assert.equal(response.status, 302);
+
+  const redirectUrl = getRedirectUrl(response);
+  const code = redirectUrl.searchParams.get("code");
+
+  assert.notEqual(code, null);
+  assert.deepEqual(authorizationCodeStore.get(code), {
+    clientId: "test-client-id",
+    redirectUri: "https://client.example.test/callback",
   });
 });
 
 async function fetchAuthorizationEndpoint(
   queryParams: Record<string, string>,
   serverConfig: ServerConfig = defaultServerConfig,
+  authorizationCodeStore: AuthorizationCodeStore = createAuthorizationCodeStore(),
 ) {
-  const fastify = createServer(serverConfig);
+  const fastify = createServer(serverConfig, authorizationCodeStore);
   const address = await fastify.listen({
     host: "127.0.0.1",
     port: 0,
@@ -101,8 +123,16 @@ async function fetchAuthorizationEndpoint(
       .pathname;
     const queryString = new URLSearchParams(queryParams).toString();
 
-    return await fetch(`${address}${authorizationPath}?${queryString}`);
+    return await fetch(`${address}${authorizationPath}?${queryString}`, {
+      redirect: "manual",
+    });
   } finally {
     await fastify.close();
   }
+}
+
+function getRedirectUrl(response: Response) {
+  const location = response.headers.get("location");
+  assert.notEqual(location, null);
+  return new URL(location);
 }

@@ -1,9 +1,12 @@
+import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
+import type { AuthorizationCodeStore } from "../authorization-code-store.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 
 export function registerAuthorizationRoute(
   fastify: FastifyInstance,
   serverConfig: ServerConfig,
+  authorizationCodeStore: AuthorizationCodeStore,
 ) {
   const authorizationEndpointPath = new URL(serverConfig.authorizationEndpoint)
     .pathname;
@@ -37,8 +40,15 @@ export function registerAuthorizationRoute(
       });
     }
 
-    return reply.code(501).send({
-      error: "not_implemented",
+    const code = randomUUID();
+    authorizationCodeStore.set(code, {
+      clientId: request.query.client_id,
+      redirectUri: request.query.redirect_uri,
     });
+
+    const redirectUri = new URL(request.query.redirect_uri);
+    redirectUri.searchParams.set("code", code);
+
+    return reply.redirect(redirectUri.toString());
   });
 }
