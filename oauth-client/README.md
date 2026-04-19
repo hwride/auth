@@ -1,6 +1,6 @@
 # OAuth Client
 
-An OAuth Client. Mainly implemented for testing and learning. Not for use in production.
+An OAuth Client. Mainly implemented for testing and learning. Do not use in production.
 
 ### Run
 
@@ -9,4 +9,4 @@ An OAuth Client. Mainly implemented for testing and learning. Not for use in pro
 - `CLIENT_ID`
 - `CLIENT_SECRET`
 2. Start the development server:
-- `npm rasdfasdfun dev`
+- `npm run dev`
