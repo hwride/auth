@@ -1,13 +1,24 @@
 import Fastify from "fastify";
+import { getServerConfig } from "./config/server-config.ts";
+import { registerOpenIdConfigurationRoute } from "./routes/openid-configuration-route.ts";
 
-main();
-
-async function main() {
-  const fastify = await initServer();
-  fastify.log.info("Authorization server is booted");
+if (import.meta.main) {
+  main();
 }
 
-async function initServer() {
+async function main() {
+  const fastify = createServer();
+
+  try {
+    await fastify.listen({ port: 4000 });
+    fastify.log.info("Authorization server is booted");
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+}
+
+export function createServer() {
   const fastify = Fastify({
     logger: {
       transport: {
@@ -21,15 +32,9 @@ async function initServer() {
     disableRequestLogging: true,
   });
 
-  fastify.get("/", async () => {
-    return "hello world";
-  });
+  const serverConfig = getServerConfig();
 
-  try {
-    await fastify.listen({ port: 4000 });
-    return fastify;
-  } catch (err) {
-    fastify.log.error(err);
-    process.exit(1);
-  }
+  registerOpenIdConfigurationRoute(fastify, serverConfig);
+
+  return fastify;
 }

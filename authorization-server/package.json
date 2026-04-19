@@ -3,7 +3,8 @@
   "type": "module",
   "version": "1.0.0",
   "scripts": {
-    "dev": "node --watch server.ts",
+    "dev": "ISSUER=http://localhost:4000 node --watch server.ts",
+    "test": "node --test",
     "types": "tsc --noEmit"
   },
   "devDependencies": {
