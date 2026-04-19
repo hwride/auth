@@ -3,6 +3,7 @@ import {
   getServerConfig,
   type ServerConfig,
 } from "./config/server-config.ts";
+import { registerAuthorizationRoute } from "./routes/authorization-route.ts";
 import { registerJwksRoute } from "./routes/jwks-route.ts";
 import { registerOpenIdConfigurationRoute } from "./routes/openid-configuration-route.ts";
 
@@ -37,6 +38,7 @@ export function createServer(serverConfig: ServerConfig = getServerConfig()) {
   });
 
   registerOpenIdConfigurationRoute(fastify, serverConfig);
+  registerAuthorizationRoute(fastify, serverConfig);
   registerJwksRoute(fastify);
 
   return fastify;
