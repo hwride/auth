@@ -1,6 +1,6 @@
 # OAuth Client
 
-An OAuth Client. Mainly implemented for testing and learning. Do not use in production.
+An OAuth Client. Mainly implemented for testing and learning. Not for use in production.
 
 ### Run
 
