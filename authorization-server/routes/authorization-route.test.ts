@@ -20,7 +20,7 @@ test("GET authorization endpoint redirects with an authorization code", async fu
     {
       client_id: "test-client-id",
       response_type: "code",
-      redirect_uri: "https://client.example.test/callback",
+      redirect_uri: "http://localhost:3000/callback",
     },
     defaultServerConfig,
     authorizationCodeStore,
@@ -31,12 +31,12 @@ test("GET authorization endpoint redirects with an authorization code", async fu
   const redirectUrl = getRedirectUrl(response);
   const code = redirectUrl.searchParams.get("code");
 
-  assert.equal(redirectUrl.origin, "https://client.example.test");
+  assert.equal(redirectUrl.origin, "http://localhost:3000");
   assert.equal(redirectUrl.pathname, "/callback");
   assert.notEqual(code, null);
   assert.deepEqual(authorizationCodeStore.get(code), {
     clientId: "test-client-id",
-    redirectUri: "https://client.example.test/callback",
+    redirectUri: "http://localhost:3000/callback",
   });
 });
 
@@ -57,7 +57,7 @@ test("GET authorization endpoint rejects invalid client_id", async function () {
   const response = await fetchAuthorizationEndpoint({
     client_id: "not-test-client-id",
     response_type: "code",
-    redirect_uri: "https://client.example.test/callback",
+    redirect_uri: "http://localhost:3000/callback",
   });
 
   assert.equal(response.status, 400);
@@ -67,11 +67,25 @@ test("GET authorization endpoint rejects invalid client_id", async function () {
   });
 });
 
+test("GET authorization endpoint rejects invalid redirect_uri", async function () {
+  const response = await fetchAuthorizationEndpoint({
+    client_id: "test-client-id",
+    response_type: "code",
+    redirect_uri: "https://client.example.test/callback",
+  });
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: "invalid_request",
+    error_description: "Invalid redirect_uri",
+  });
+});
+
 test("GET authorization endpoint rejects unsupported response_type", async function () {
   const response = await fetchAuthorizationEndpoint({
     client_id: "test-client-id",
     response_type: "token",
-    redirect_uri: "https://client.example.test/callback",
+    redirect_uri: "http://localhost:3000/callback",
   });
 
   assert.equal(response.status, 400);
@@ -86,7 +100,7 @@ test("GET authorization endpoint uses the configured endpoint path", async funct
     {
       client_id: "test-client-id",
       response_type: "code",
-      redirect_uri: "https://client.example.test/callback",
+      redirect_uri: "http://localhost:3000/callback",
     },
     {
       ...defaultServerConfig,
@@ -103,7 +117,7 @@ test("GET authorization endpoint uses the configured endpoint path", async funct
   assert.notEqual(code, null);
   assert.deepEqual(authorizationCodeStore.get(code), {
     clientId: "test-client-id",
-    redirectUri: "https://client.example.test/callback",
+    redirectUri: "http://localhost:3000/callback",
   });
 });
 

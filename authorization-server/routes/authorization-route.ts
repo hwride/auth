@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type { AuthorizationCodeStore } from "../authorization-code-store.ts";
+import { clientsConfig } from "../config/clients-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 
 export function registerAuthorizationRoute(
@@ -27,10 +28,22 @@ export function registerAuthorizationRoute(
       });
     }
 
-    if (request.query.client_id !== "test-client-id") {
+    // Check if this is a valid client.
+    const clientConfig = clientsConfig.find(function (client) {
+      return client.clientId === request.query.client_id;
+    });
+    if (!clientConfig) {
       return reply.code(400).send({
         error: "invalid_request",
         error_description: "Invalid client_id",
+      });
+    }
+
+    // Check if this is a valid redirect URI for the client.
+    if (!clientConfig.redirectUris.includes(request.query.redirect_uri)) {
+      return reply.code(400).send({
+        error: "invalid_request",
+        error_description: "Invalid redirect_uri",
       });
     }
 
@@ -40,15 +53,16 @@ export function registerAuthorizationRoute(
       });
     }
 
+    // Passed validation. Create a new authorization code and store it.
     const code = randomUUID();
     authorizationCodeStore.set(code, {
-      clientId: request.query.client_id,
+      clientId: clientConfig.clientId,
       redirectUri: request.query.redirect_uri,
     });
 
+    // Redirect to redirect_uri with code.
     const redirectUri = new URL(request.query.redirect_uri);
     redirectUri.searchParams.set("code", code);
-
     return reply.redirect(redirectUri.toString());
   });
 }
