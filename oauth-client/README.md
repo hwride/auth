@@ -2,7 +2,7 @@
 
 An OAuth Client. Mainly implemented for testing and learning. Not for use in production.
 
-### Run
+## Run
 
 1. Set required environment variables:
 - `AUTH_SERVER_BASE`
