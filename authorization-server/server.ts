@@ -1,5 +1,9 @@
 import Fastify from "fastify";
-import { getServerConfig } from "./config/server-config.ts";
+import {
+  getServerConfig,
+  type ServerConfig,
+} from "./config/server-config.ts";
+import { registerJwksRoute } from "./routes/jwks-route.ts";
 import { registerOpenIdConfigurationRoute } from "./routes/openid-configuration-route.ts";
 
 if (import.meta.main) {
@@ -18,7 +22,7 @@ async function main() {
   }
 }
 
-export function createServer() {
+export function createServer(serverConfig: ServerConfig = getServerConfig()) {
   const fastify = Fastify({
     logger: {
       transport: {
@@ -32,9 +36,8 @@ export function createServer() {
     disableRequestLogging: true,
   });
 
-  const serverConfig = getServerConfig();
-
   registerOpenIdConfigurationRoute(fastify, serverConfig);
+  registerJwksRoute(fastify);
 
   return fastify;
 }

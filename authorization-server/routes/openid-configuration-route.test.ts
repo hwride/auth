@@ -1,111 +1,57 @@
 import assert from "node:assert/strict";
-import type { AddressInfo } from "node:net";
 import test from "node:test";
+import type { ServerConfig } from "../config/server-config.ts";
 import { createServer } from "../server.ts";
 
 test("GET /.well-known/openid-configuration defaults endpoints from the issuer", async function () {
-  await withEnvVars(
-    {
-      ISSUER: "https://issuer.example.test",
-      AUTHORIZATION_ENDPOINT: undefined,
-      TOKEN_ENDPOINT: undefined,
-    },
-    async function () {
-      const response = await fetchOpenIdConfiguration();
+  const response = await fetchOpenIdConfiguration({
+    issuer: "https://issuer.example.test",
+    authorizationEndpoint: "https://issuer.example.test/authorize",
+    tokenEndpoint: "https://issuer.example.test/token",
+    jwksUri: "https://issuer.example.test/.well-known/jwks.json",
+  });
 
-      assert.equal(response.status, 200);
-      assert.equal(
-        response.headers.get("content-type"),
-        "application/json; charset=utf-8",
-      );
-      assert.deepEqual(await response.json(), {
-        issuer: "https://issuer.example.test",
-        authorization_endpoint: "https://issuer.example.test/authorize",
-        token_endpoint: "https://issuer.example.test/token",
-      });
-    },
+  assert.equal(response.status, 200);
+  assert.equal(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
   );
+  assert.deepEqual(await response.json(), {
+    issuer: "https://issuer.example.test",
+    authorization_endpoint: "https://issuer.example.test/authorize",
+    token_endpoint: "https://issuer.example.test/token",
+    jwks_uri: "https://issuer.example.test/.well-known/jwks.json",
+  });
 });
 
 test("GET /.well-known/openid-configuration uses endpoint overrides when provided", async function () {
-  await withEnvVars(
-    {
-      ISSUER: "https://issuer.example.test",
-      AUTHORIZATION_ENDPOINT: "https://login.example.test/oauth2/authorize",
-      TOKEN_ENDPOINT: "https://tokens.example.test/oauth2/token",
-    },
-    async function () {
-      const response = await fetchOpenIdConfiguration();
+  const response = await fetchOpenIdConfiguration({
+    issuer: "https://issuer.example.test",
+    authorizationEndpoint: "https://login.example.test/oauth2/authorize",
+    tokenEndpoint: "https://tokens.example.test/oauth2/token",
+    jwksUri: "https://keys.example.test/oauth2/jwks.json",
+  });
 
-      assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), {
-        issuer: "https://issuer.example.test",
-        authorization_endpoint: "https://login.example.test/oauth2/authorize",
-        token_endpoint: "https://tokens.example.test/oauth2/token",
-      });
-    },
-  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    issuer: "https://issuer.example.test",
+    authorization_endpoint: "https://login.example.test/oauth2/authorize",
+    token_endpoint: "https://tokens.example.test/oauth2/token",
+    jwks_uri: "https://keys.example.test/oauth2/jwks.json",
+  });
 });
 
-async function fetchOpenIdConfiguration() {
-  const fastify = createServer();
+async function fetchOpenIdConfiguration(serverConfig: ServerConfig) {
+  const fastify = createServer(serverConfig);
 
-  await fastify.listen({
+  const address = await fastify.listen({
     host: "127.0.0.1",
     port: 0,
   });
 
   try {
-    const address = getServerAddress(fastify.server.address());
-
-    return await fetch(
-      `http://127.0.0.1:${address.port}/.well-known/openid-configuration`,
-    );
+    return await fetch(`${address}/.well-known/openid-configuration`);
   } finally {
     await fastify.close();
   }
-}
-
-async function withEnvVars(
-  envVars: Record<string, string | undefined>,
-  callback: () => Promise<void>,
-) {
-  // Save original env vars.
-  const originalEnvVars = new Map(
-    Object.keys(envVars).map(function (key) {
-      return [key, process.env[key]];
-    }),
-  );
-
-  // Set provided env vars.
-  for (const [key, value] of Object.entries(envVars)) {
-    if (value === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
-  }
-
-  try {
-    await callback();
-  } finally {
-    // Restore env vars.
-    for (const [key, value] of originalEnvVars.entries()) {
-      if (value === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = value;
-      }
-    }
-  }
-}
-
-function getServerAddress(address: string | AddressInfo | null): AddressInfo {
-  if (address === null || typeof address === "string") {
-    throw new Error(
-      "Expected the Fastify server to be listening on a TCP port",
-    );
-  }
-
-  return address;
 }
