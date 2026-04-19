@@ -350,6 +350,24 @@ async function verifyIdToken(
       errorMessage: string;
     }
 > {
+  if (!authFlowContext.isOidcFlow) {
+    if (typeof tokenResponseBody.id_token === "string") {
+      log.info("ID token returned for OAuth flow; skipping ID token validation");
+      return {
+        ok: true,
+        idTokenJson: JSON.stringify(
+          {
+            note: "ID token returned, but this flow did not request openid",
+          },
+          null,
+          2,
+        ),
+      };
+    }
+
+    return { ok: true, idTokenJson: undefined };
+  }
+
   if (typeof tokenResponseBody.id_token !== "string") {
     return { ok: false, errorMessage: "ID token is not a string" };
   }

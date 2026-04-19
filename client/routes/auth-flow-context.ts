@@ -3,6 +3,7 @@ export type AuthFlowContext = {
   nonce?: string;
   codeVerifier?: string;
   maxAge?: number;
+  isOidcFlow?: boolean;
   accessToken?: string;
   idToken?: string;
   refreshToken?: string;

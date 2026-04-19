@@ -71,7 +71,13 @@ export function registerAuthorizeRoute(
     }
 
     if (scope) {
-      authorizeQueryParams.scope = scope.trim();
+      const trimmedScope = scope.trim();
+      authorizeQueryParams.scope = trimmedScope;
+      authFlowContext.isOidcFlow = trimmedScope
+        .split(/\s+/)
+        .includes("openid");
+    } else {
+      authFlowContext.isOidcFlow = false;
     }
     if (audience) {
       authorizeQueryParams.audience = audience.trim();

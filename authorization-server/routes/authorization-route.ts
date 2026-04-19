@@ -20,7 +20,8 @@ export function registerAuthorizationRoute(
     };
   }>(authorizationEndpointPath, async function (request, reply) {
     // Check for valid input.
-    // OAuth 2.0, Error Response, https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1
+    // OAuth 2.0, Authorization Response, Error Response
+    // https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1
     if (!request.query.redirect_uri) {
       return reply.code(400).send({
         error: "invalid_request",
