@@ -11,10 +11,18 @@ export function registerAuthorizationRoute(
   fastify.get<{
     Querystring: {
       response_type?: string;
+      redirect_uri?: string;
     };
   }>(authorizationEndpointPath, async function (request, reply) {
+    // OAuth 2.0, Error Response, https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1
+    if (!request.query.redirect_uri) {
+      return reply.code(400).send({
+        error: "invalid_request",
+        error_description: "Missing redirect_uri",
+      });
+    }
+
     if (request.query.response_type !== "code") {
-      // OAuth 2.0, Error Response, https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1
       return reply.code(400).send({
         error: "unsupported_response_type",
       });
