@@ -3,7 +3,7 @@
   "type": "module",
   "version": "1.0.0",
   "scripts": {
-    "dev": "node --watch oauth/client.ts",
+    "dev": "node --watch oauth-client/client.ts",
     "types": "tsc --noEmit",
     "prettier:write": "prettier --write ."
   },
