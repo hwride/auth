@@ -10,4 +10,9 @@ export const clientsConfig: ClientConfig[] = [
     clientSecret: "test-client-secret",
     redirectUris: ["http://localhost:3000/callback"],
   },
+  {
+    clientId: "other-test-client-id",
+    clientSecret: "other-test-client-secret",
+    redirectUris: ["http://localhost:3000/callback"],
+  },
 ];
