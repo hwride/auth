@@ -3,13 +3,8 @@ import type { AuthFlowContext } from "./auth-flow-context.ts";
 import { verifyJwtWithJose } from "../utils/jwt-verifier.ts";
 import type { JWTPayload } from "jose";
 
-type CallbackQuery = {
-  code?: string;
-  state?: string;
-};
-
-type CallbackViewProps = {
-  callbackTitle: "Callback failed" | "Callback success";
+type RefreshViewProps = {
+  callbackTitle: "Refresh failed" | "Refresh success";
   errorMessage: string | undefined;
   clientId: string | undefined;
   authServerBaseUrl: string;
@@ -29,62 +24,52 @@ type CallbackViewProps = {
 const AUTH_TIME_CLOCK_TOLERANCE_SECONDS = 30;
 const MAX_ID_TOKEN_AGE_SECONDS = 30 * 24 * 60 * 60;
 
-export function registerCallbackRoute(
+export function registerRefreshRoute(
   fastify: FastifyInstance,
   authFlowContext: AuthFlowContext,
 ) {
-  // OAuth, Authorization Code Grant, Authorization Response - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2
-  // OIDC, Authorization Code Grant, Successful Authentication Response - https://openid.net/specs/openid-connect-core-1_0-final.html#AuthResponse
-  fastify.get<{
-    Querystring: CallbackQuery;
-  }>("/callback", async function (request, reply) {
-    const query = request.query;
-    const callbackViewProps = getDefaultCallbackViewProps(authFlowContext);
+  fastify.post("/refresh", async function (_, reply) {
+    const refreshViewProps = getDefaultRefreshViewProps(authFlowContext);
 
-    fastify.log.info({ query }, "/callback - Authorization Response");
-
-    const validationResult = validateCallbackAuthorizationResponse(
-      query,
-      authFlowContext,
-    );
-    if (validationResult.ok === false) {
-      return renderCallbackFailure(reply, 400, {
-        ...callbackViewProps,
-        errorMessage: validationResult.errorMessage,
+    if (!authFlowContext.refreshToken) {
+      return renderRefreshFailure(reply, 400, {
+        ...refreshViewProps,
+        errorMessage:
+          "No refresh token is stored. Authorize with offline_access first.",
       });
     }
 
-    const tokenResponse = await makeTokenRequest({
-      code: validationResult.code,
+    const tokenResponse = await makeRefreshTokenRequest({
+      refreshToken: authFlowContext.refreshToken,
       authFlowContext,
       clientId: process.env.CLIENT_ID,
       clientSecret: process.env.CLIENT_SECRET,
       log: fastify.log,
     });
 
-    const tokenResponseResult = await handleTokenResponse({
+    const refreshResponseResult = await handleRefreshTokenResponse({
       tokenResponse,
-      callbackViewProps,
+      refreshViewProps,
       authFlowContext,
       log: fastify.log,
     });
-    if (tokenResponseResult.ok === false) {
-      return renderCallbackFailure(
+    if (refreshResponseResult.ok === false) {
+      return renderRefreshFailure(
         reply,
-        tokenResponseResult.statusCode,
-        tokenResponseResult.callbackViewProps,
+        refreshResponseResult.statusCode,
+        refreshResponseResult.refreshViewProps,
       );
     }
 
-    return renderCallbackSuccess(reply, tokenResponseResult.callbackViewProps);
+    return renderRefreshSuccess(reply, refreshResponseResult.refreshViewProps);
   });
 }
 
-function getDefaultCallbackViewProps(
+function getDefaultRefreshViewProps(
   authFlowContext: AuthFlowContext,
-): CallbackViewProps {
+): RefreshViewProps {
   return {
-    callbackTitle: "Callback failed",
+    callbackTitle: "Refresh failed",
     errorMessage: undefined,
     clientId: process.env.CLIENT_ID,
     authServerBaseUrl: authFlowContext.authServerBaseUrl,
@@ -102,67 +87,49 @@ function getDefaultCallbackViewProps(
   };
 }
 
-function validateCallbackAuthorizationResponse(
-  query: CallbackQuery,
-  authFlowContext: AuthFlowContext,
-): { ok: true; code: string } | { ok: false; errorMessage: string } {
-  if (!query.code) {
-    return { ok: false, errorMessage: "Missing code" };
-  }
-
-  const expectedState = authFlowContext.state;
-  if (expectedState && (!query.state || query.state !== expectedState)) {
-    return { ok: false, errorMessage: "Invalid state" };
-  }
-
-  return { ok: true, code: query.code };
-}
-
-async function makeTokenRequest(args: {
-  code: string;
+async function makeRefreshTokenRequest(args: {
+  refreshToken: string;
   authFlowContext: AuthFlowContext;
   clientId: string | undefined;
   clientSecret: string | undefined;
   log: FastifyInstance["log"];
 }): Promise<Response> {
-  // OAuth, Access Token Request - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3
   const tokenUrl = new URL(args.authFlowContext.tokenEndpoint);
   const basicAuth = Buffer.from(
     `${args.clientId}:${args.clientSecret}`,
   ).toString("base64");
 
   const tokenRequestBody = new URLSearchParams({
-    grant_type: "authorization_code",
-    code: args.code,
-    redirect_uri: args.authFlowContext.redirectUri,
+    grant_type: "refresh_token",
+    refresh_token: args.refreshToken,
   });
-  if (args.authFlowContext.codeVerifier) {
-    tokenRequestBody.set("code_verifier", args.authFlowContext.codeVerifier);
-  }
 
   args.log.info(
     { url: tokenUrl, body: tokenRequestBody.toString() },
-    "/callback - Access Token Request",
+    "/refresh - Refresh Token Request",
   );
 
   return fetch(tokenUrl.toString(), {
     method: "POST",
     headers: {
-      authorization: `Basic ${basicAuth}`,
-      "content-type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${basicAuth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
     },
     body: tokenRequestBody.toString(),
   });
 }
 
-async function handleTokenResponse(args: {
+/**
+ * https://openid.net/specs/openid-connect-core-1_0-31.html#RefreshTokenResponse
+ */
+async function handleRefreshTokenResponse(args: {
   tokenResponse: Response;
-  callbackViewProps: CallbackViewProps;
+  refreshViewProps: RefreshViewProps;
   authFlowContext: AuthFlowContext;
   log: FastifyInstance["log"];
 }): Promise<
-  | { ok: true; callbackViewProps: CallbackViewProps }
-  | { ok: false; statusCode: number; callbackViewProps: CallbackViewProps }
+  | { ok: true; refreshViewProps: RefreshViewProps }
+  | { ok: false; statusCode: number; refreshViewProps: RefreshViewProps }
 > {
   if (!args.tokenResponse.ok) {
     const tokenResponseBody = await args.tokenResponse.text();
@@ -174,28 +141,25 @@ async function handleTokenResponse(args: {
         2,
       );
     } catch {
-      // Keep raw body when response is not JSON.
       formattedErrorResponseBody = tokenResponseBody;
     }
 
     args.log.error(
       { status: args.tokenResponse.status, body: tokenResponseBody },
-      "/callback - Access Token Request failed",
+      "/refresh - Refresh Token Request failed",
     );
 
     return {
       ok: false,
       statusCode: 502,
-      callbackViewProps: {
-        ...args.callbackViewProps,
+      refreshViewProps: {
+        ...args.refreshViewProps,
         errorMessage: "Token request failed",
         tokenResponseJson: formattedErrorResponseBody,
       },
     };
   }
 
-  // OAuth, Access Token Response - https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.4
-  // OIDC, Token Response Validation - https://openid.net/specs/openid-connect-core-1_0-final.html#TokenResponseValidation
   const tokenResponseBody = (await args.tokenResponse.json()) as Record<
     string,
     unknown
@@ -210,15 +174,15 @@ async function handleTokenResponse(args: {
     return {
       ok: false,
       statusCode: 400,
-      callbackViewProps: {
-        ...args.callbackViewProps,
+      refreshViewProps: {
+        ...args.refreshViewProps,
         errorMessage: accessTokenResult.errorMessage,
       },
     };
   }
   const accessTokenJson = accessTokenResult.accessTokenJson;
 
-  const idTokenResult = await verifyIdToken(
+  const idTokenResult = await verifyOptionalIdToken(
     tokenResponseBody,
     args.authFlowContext,
     args.log,
@@ -227,36 +191,34 @@ async function handleTokenResponse(args: {
     return {
       ok: false,
       statusCode: 400,
-      callbackViewProps: {
-        ...args.callbackViewProps,
+      refreshViewProps: {
+        ...args.refreshViewProps,
         errorMessage: idTokenResult.errorMessage,
         accessTokenJson,
       },
     };
   }
 
-  args.authFlowContext.refreshToken =
-    typeof tokenResponseBody.refresh_token === "string"
-      ? tokenResponseBody.refresh_token
-      : undefined;
-  args.authFlowContext.accessToken =
-    typeof tokenResponseBody.access_token === "string"
-      ? tokenResponseBody.access_token
-      : undefined;
-  args.authFlowContext.idToken =
-    typeof tokenResponseBody.id_token === "string"
-      ? tokenResponseBody.id_token
-      : undefined;
+  if (typeof tokenResponseBody.refresh_token === "string") {
+    args.authFlowContext.refreshToken = tokenResponseBody.refresh_token;
+  }
+  if (typeof tokenResponseBody.access_token === "string") {
+    args.authFlowContext.accessToken = tokenResponseBody.access_token;
+  }
+  if (typeof tokenResponseBody.id_token === "string") {
+    args.authFlowContext.idToken = tokenResponseBody.id_token;
+  }
 
   args.log.info(
     { status: args.tokenResponse.status, body: tokenResponseBody },
-    "/callback - Access Token Response",
+    "/refresh - Refresh Token Response",
   );
 
   return {
     ok: true,
-    callbackViewProps: {
-      ...args.callbackViewProps,
+    refreshViewProps: {
+      ...args.refreshViewProps,
+      callbackTitle: "Refresh success",
       errorMessage: undefined,
       tokenResponseJson: JSON.stringify(tokenResponseBody, null, 2),
       accessTokenJson,
@@ -334,12 +296,7 @@ async function verifyAccessToken(
   }
 }
 
-/**
- * Validate an ID token received from an Authorization Server.
- *
- * https://openid.net/specs/openid-connect-core-1_0.html#IDTokenValidation
- */
-async function verifyIdToken(
+async function verifyOptionalIdToken(
   tokenResponseBody: Record<string, unknown>,
   authFlowContext: AuthFlowContext,
   log: FastifyInstance["log"],
@@ -351,10 +308,9 @@ async function verifyIdToken(
     }
 > {
   if (typeof tokenResponseBody.id_token !== "string") {
-    return { ok: false, errorMessage: "ID token is not a string" };
+    return { ok: true, idTokenJson: undefined };
   }
 
-  // 3.1.3.7. ID Token Validation - 6 - Verify JWS signature
   let payload: JWTPayload;
   let protectedHeader: Awaited<
     ReturnType<typeof verifyJwtWithJose>
@@ -374,9 +330,6 @@ async function verifyIdToken(
     };
   }
 
-  // 3.1.3.7. ID Token Validation - 1 - Check encryption.
-
-  // 3.1.3.7. ID Token Validation - 2 - Check iss - issuer should be the authorization server.
   if (authFlowContext.issuer !== payload.iss) {
     return {
       ok: false,
@@ -384,7 +337,6 @@ async function verifyIdToken(
     };
   }
 
-  // 3.1.3.7. ID Token Validation - 3 - Check aud - audience should be the client ID.
   if (process.env.CLIENT_ID !== payload.aud) {
     return {
       ok: false,
@@ -392,27 +344,19 @@ async function verifyIdToken(
     };
   }
 
-  // 3.1.3.7. ID Token Validation - 4 - Check azp (authorized parties) according to extensions
-  // 3.1.3.7. ID Token Validation - 5 - Check azp - if azp is present, check it includes client ID
-  // 3.1.3.7. ID Token Validation - 6 - Verify JWS signature (above)
-
-  // 3.1.3.7. ID Token Validation - 7 - Check alg - should default to RS256 or match client request
   if (protectedHeader.alg !== "RS256") {
     return {
       ok: false,
       errorMessage: "ID token does use default RS256 for alg",
     };
   }
-  // 3.1.3.7. ID Token Validation - 8 - Verify alg if it is a MAC based algorithm (e.g. HS256, HS384, HS512)
 
-  // 3.1.3.7. ID Token Validation - 9 - Check exp - current time must be before exp
   const nowSeconds = Math.floor(Date.now() / 1000);
   const tokenExpirySeconds = Number(payload.exp);
   if (nowSeconds >= tokenExpirySeconds) {
     return { ok: false, errorMessage: "ID token has expired" };
   }
 
-  // 3.1.3.7. ID Token Validation - 10 - Check iat - clients may choose to reject tokens issued too long ago.
   const issuedAtSeconds = Number(payload.iat);
   const secondsSinceIssued = nowSeconds - issuedAtSeconds;
   if (secondsSinceIssued > MAX_ID_TOKEN_AGE_SECONDS) {
@@ -422,11 +366,14 @@ async function verifyIdToken(
     };
   }
 
-  // 3.1.3.7. ID Token Validation - 11 - Check nonce
-  // Checks ID token matches the nonce we generated at the start of the authentication flow.
-  if (authFlowContext.nonce && authFlowContext.nonce !== payload.nonce) {
-    const tokenNonce =
-      payload.nonce === undefined ? "undefined" : String(payload.nonce);
+  // For refresh responses, nonce is typically omitted.
+  // If the OP includes it, it must match the original nonce.
+  if (
+    payload.nonce !== undefined &&
+    authFlowContext.nonce &&
+    authFlowContext.nonce !== payload.nonce
+  ) {
+    const tokenNonce = String(payload.nonce);
     log.warn(
       {
         newNonce: payload.nonce,
@@ -440,12 +387,6 @@ async function verifyIdToken(
     };
   }
 
-  // 3.1.3.7. ID Token Validation - 12 - Check acr
-  // If client requested acr (Authentication Context Class Reference), it should check its value is appropriate.
-
-  // 3.1.3.7. ID Token Validation - 13 - Check auth_time
-  // If the client requested auth_time either via max_age or another request, it should request re-authentication if
-  // too much time has elapsed since the last user authentication.
   if (authFlowContext.maxAge !== undefined) {
     if (payload.auth_time === undefined) {
       log.warn(
@@ -475,24 +416,24 @@ async function verifyIdToken(
   };
 }
 
-function renderCallbackFailure(
+function renderRefreshFailure(
   reply: FastifyReply,
   statusCode: number,
-  callbackViewProps: CallbackViewProps,
+  refreshViewProps: RefreshViewProps,
 ) {
   return reply.code(statusCode).view("callback.ejs", {
-    ...callbackViewProps,
-    callbackTitle: "Callback failed",
+    ...refreshViewProps,
+    callbackTitle: "Refresh failed",
   });
 }
 
-function renderCallbackSuccess(
+function renderRefreshSuccess(
   reply: FastifyReply,
-  callbackViewProps: CallbackViewProps,
+  refreshViewProps: RefreshViewProps,
 ) {
   return reply.view("callback.ejs", {
-    ...callbackViewProps,
-    callbackTitle: "Callback success",
+    ...refreshViewProps,
+    callbackTitle: "Refresh success",
     errorMessage: undefined,
   });
 }

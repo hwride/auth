@@ -5,7 +5,7 @@ export function registerHomeRoute(
   fastify: FastifyInstance,
   authFlowContext: AuthFlowContext,
 ) {
-  fastify.get("/", async function (request, reply) {
+  fastify.get("/", async function (_, reply) {
     return reply.view("index.ejs", {
       authServerBaseUrl: authFlowContext.authServerBaseUrl,
       discoveryUrlUsed: authFlowContext.discoveryUrl,
@@ -13,6 +13,10 @@ export function registerHomeRoute(
       tokenEndpointUsed: authFlowContext.tokenEndpoint,
       jwksUrlUsed: authFlowContext.jwksUri,
       clientId: process.env.CLIENT_ID,
+      accessToken: authFlowContext.accessToken,
+      idToken: authFlowContext.idToken,
+      refreshToken: authFlowContext.refreshToken,
+      hasRefreshToken: Boolean(authFlowContext.refreshToken),
     });
   });
 }

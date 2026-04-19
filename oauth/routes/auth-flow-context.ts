@@ -3,6 +3,9 @@ export type AuthFlowContext = {
   nonce?: string;
   codeVerifier?: string;
   maxAge?: number;
+  accessToken?: string;
+  idToken?: string;
+  refreshToken?: string;
   authServerBaseUrl: string;
   issuer: string;
   discoveryUrl?: string;

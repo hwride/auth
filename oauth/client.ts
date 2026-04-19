@@ -1,12 +1,14 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import formbody from "@fastify/formbody";
 import view from "@fastify/view";
 import ejs from "ejs";
 import type { AuthFlowContext } from "./routes/auth-flow-context.ts";
 import { registerHomeRoute } from "./routes/home-route.ts";
 import { registerAuthorizeRoute } from "./routes/authorize-route.ts";
 import { registerCallbackRoute } from "./routes/callback-route.ts";
+import { registerRefreshRoute } from "./routes/refresh-route.ts";
 import { authServerDiscovery } from "./utils/oidc-discovery.ts";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -33,6 +35,8 @@ async function initServer() {
     disableRequestLogging: true,
   });
 
+  await fastify.register(formbody);
+
   await fastify.register(view, {
     engine: {
       ejs,
@@ -47,6 +51,7 @@ async function initServer() {
   registerHomeRoute(fastify, authFlowContext);
   registerAuthorizeRoute(fastify, authFlowContext);
   registerCallbackRoute(fastify, authFlowContext);
+  registerRefreshRoute(fastify, authFlowContext);
 
   try {
     await fastify.listen({ port: 3000 });

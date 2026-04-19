@@ -21,6 +21,13 @@
         text-align: left;
         vertical-align: top;
       }
+
+      .token-value {
+        display: block;
+        max-width: 70ch;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
     </style>
   </head>
   <body>
@@ -97,5 +104,46 @@
     <p>No ID token present.</p>
     <% } %>
     <% } %>
+
+    <h2>Stored token state (in-memory)</h2>
+    <table>
+      <tbody>
+        <tr>
+          <th>Access token</th>
+          <td>
+            <% if (accessToken) { %>
+            <code class="token-value"><%= accessToken %></code>
+            <% } else { %>
+            Not stored.
+            <% } %>
+          </td>
+        </tr>
+        <tr>
+          <th>ID token</th>
+          <td>
+            <% if (idToken) { %>
+            <code class="token-value"><%= idToken %></code>
+            <% } else { %>
+            Not stored.
+            <% } %>
+          </td>
+        </tr>
+        <tr>
+          <th>Refresh token</th>
+          <td>
+            <% if (refreshToken) { %>
+            <code class="token-value"><%= refreshToken %></code>
+            <% } else { %>
+            Not stored.
+            <% } %>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <form method="post" action="/refresh">
+      <button type="submit" <%= hasRefreshToken ? "" : "disabled" %>>
+        Refresh tokens
+      </button>
+    </form>
   </body>
 </html>
