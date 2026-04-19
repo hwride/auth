@@ -12,6 +12,7 @@ const defaultServerConfig: ServerConfig = {
 
 test("GET authorization endpoint returns not implemented for response_type=code", async function () {
   const response = await fetchAuthorizationEndpoint({
+    client_id: "test-client-id",
     response_type: "code",
     redirect_uri: "https://client.example.test/callback",
   });
@@ -28,6 +29,7 @@ test("GET authorization endpoint returns not implemented for response_type=code"
 
 test("GET authorization endpoint rejects requests missing redirect_uri", async function () {
   const response = await fetchAuthorizationEndpoint({
+    client_id: "test-client-id",
     response_type: "code",
   });
 
@@ -38,8 +40,23 @@ test("GET authorization endpoint rejects requests missing redirect_uri", async f
   });
 });
 
+test("GET authorization endpoint rejects invalid client_id", async function () {
+  const response = await fetchAuthorizationEndpoint({
+    client_id: "not-test-client-id",
+    response_type: "code",
+    redirect_uri: "https://client.example.test/callback",
+  });
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: "invalid_request",
+    error_description: "Invalid client_id",
+  });
+});
+
 test("GET authorization endpoint rejects unsupported response_type", async function () {
   const response = await fetchAuthorizationEndpoint({
+    client_id: "test-client-id",
     response_type: "token",
     redirect_uri: "https://client.example.test/callback",
   });
@@ -53,6 +70,7 @@ test("GET authorization endpoint rejects unsupported response_type", async funct
 test("GET authorization endpoint uses the configured endpoint path", async function () {
   const response = await fetchAuthorizationEndpoint(
     {
+      client_id: "test-client-id",
       response_type: "code",
       redirect_uri: "https://client.example.test/callback",
     },
