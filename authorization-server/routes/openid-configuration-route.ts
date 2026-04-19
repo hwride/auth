@@ -12,6 +12,7 @@ export function registerOpenIdConfigurationRoute(
       issuer: serverConfig.issuer,
       authorization_endpoint: serverConfig.authorizationEndpoint,
       token_endpoint: serverConfig.tokenEndpoint,
+      jwks_uri: serverConfig.jwksUri,
     });
   });
 }

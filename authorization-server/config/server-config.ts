@@ -2,6 +2,7 @@ export type ServerConfig = {
   issuer: string;
   authorizationEndpoint: string;
   tokenEndpoint: string;
+  jwksUri: string;
 };
 
 export function getServerConfig(): ServerConfig {
@@ -17,6 +18,7 @@ export function getServerConfig(): ServerConfig {
     authorizationEndpoint:
       process.env.AUTHORIZATION_ENDPOINT ?? `${issuer}/authorize`,
     tokenEndpoint: process.env.TOKEN_ENDPOINT ?? `${issuer}/token`,
+    jwksUri: process.env.JWKS_URI ?? `${issuer}/.well-known/jwks.json`,
   };
 }
 
