@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
+import { SignJWT } from "jose";
 import type { AuthorizationCodeStore } from "../authorization-code-store.ts";
 import { clientsConfig } from "../config/clients-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
@@ -111,16 +112,39 @@ export function registerTokenRoute(
     // Remove the authorization code so it can't be re-used.
     authorizationCodeStore.delete(request.body.code);
 
-    // Generate and save an access token.
-    const accessToken = randomUUID();
-    tokenStore.set(accessToken, {
-      clientId: clientConfig.clientId,
-    });
+    if (clientConfig.accessTokenType === "opaque") {
+      // Generate and save an access token.
+      const accessToken = randomUUID();
+      tokenStore.set(accessToken, {
+        clientId: clientConfig.clientId,
+      });
 
-    return reply.send({
-      access_token: accessToken,
-      token_type: "Bearer",
-    });
+      return reply.send({
+        access_token: accessToken,
+        token_type: "Bearer",
+      });
+    }
+    // accessTokenType === "jwt"
+    else {
+      // JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens
+      // https://datatracker.ietf.org/doc/html/rfc9068
+      const token = await new SignJWT({
+        iss: serverConfig.issuer,
+        aud: serverConfig.issuer,
+        sub: clientConfig.clientId,
+        client_id: clientConfig.clientId,
+        jti: randomUUID(),
+      })
+        .setProtectedHeader({ alg: serverConfig.jwtSigningAlg })
+        .setIssuedAt()
+        .setExpirationTime("1h")
+        .sign(serverConfig.privateKey);
+
+      return reply.send({
+        access_token: token,
+        token_type: "Bearer",
+      });
+    }
   });
 }
 

@@ -1,0 +1,11 @@
+- [ ] `state`
+- [ ] PKCE https://datatracker.ietf.org/doc/html/rfc7636
+- [ ] Support key rotation
+- [ ] Refresh tokens
+- [ ] OIDC
+- [ ] `nonce`
+- [ ] Scopes
+- [ ] Resource indicators https://datatracker.ietf.org/doc/html/rfc8707
+- [ ] Token introspection https://datatracker.ietf.org/doc/html/rfc7662
+- [ ] Token exchange https://datatracker.ietf.org/doc/html/rfc8693
+- [ ] RBAC

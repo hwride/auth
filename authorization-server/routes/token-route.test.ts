@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { generateKeyPair, jwtVerify } from "jose";
 import {
   createAuthorizationCodeStore,
   type AuthorizationCodeStore,
@@ -8,7 +9,12 @@ import type { ServerConfig } from "../config/server-config.ts";
 import { createServer } from "../server.ts";
 import { createTokenStore, type TokenStore } from "../token-store.ts";
 
+const testSigningKeys = await generateKeyPair("RS256");
+
 const defaultServerConfig: ServerConfig = {
+  jwtSigningAlg: "RS256",
+  publicKey: testSigningKeys.publicKey,
+  privateKey: testSigningKeys.privateKey,
   issuer: "https://issuer.example.test",
   authorizationEndpoint: "https://issuer.example.test/authorize",
   tokenEndpoint: "https://issuer.example.test/token",
@@ -25,7 +31,7 @@ test("POST token endpoint rejects unsupported grant_type", async function () {
     },
     defaultServerConfig,
     authorizationCodeStore,
-    createBasicAuthHeader("test-client-id", "test-client-secret"),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
   );
 
   assert.equal(response.status, 400);
@@ -41,7 +47,7 @@ test("POST token endpoint rejects requests missing code", async function () {
     },
     defaultServerConfig,
     createAuthorizationCodeStore(),
-    createBasicAuthHeader("test-client-id", "test-client-secret"),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
   );
 
   assert.equal(response.status, 400);
@@ -72,7 +78,7 @@ test("POST token endpoint rejects invalid client auth", async function () {
     },
     defaultServerConfig,
     createAuthorizationCodeStoreWithCode(),
-    createBasicAuthHeader("test-client-id", "wrong-secret"),
+    createBasicAuthHeader("client-id-opaque", "wrong-secret"),
   );
 
   assert.equal(response.status, 401);
@@ -90,7 +96,7 @@ test("POST token endpoint rejects unknown authorization code", async function ()
     },
     defaultServerConfig,
     createAuthorizationCodeStore(),
-    createBasicAuthHeader("test-client-id", "test-client-secret"),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
   );
 
   assert.equal(response.status, 400);
@@ -108,7 +114,7 @@ test("POST token endpoint rejects expired authorization code", async function ()
     },
     defaultServerConfig,
     createAuthorizationCodeStoreWithCodeExpiresAt(Date.now() - 1),
-    createBasicAuthHeader("test-client-id", "test-client-secret"),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
   );
 
   assert.equal(response.status, 400);
@@ -127,7 +133,7 @@ test("POST token endpoint rejects authorization code issued to a different clien
     },
     defaultServerConfig,
     createAuthorizationCodeStoreWithCode(),
-    createBasicAuthHeader("other-test-client-id", "other-test-client-secret"),
+    createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
   );
 
   assert.equal(response.status, 400);
@@ -146,7 +152,7 @@ test("POST token endpoint rejects mismatched redirect_uri", async function () {
     },
     defaultServerConfig,
     createAuthorizationCodeStoreWithCode(),
-    createBasicAuthHeader("test-client-id", "test-client-secret"),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
   );
 
   assert.equal(response.status, 400);
@@ -167,7 +173,7 @@ test("POST token endpoint returns an opaque access token for valid code exchange
     },
     defaultServerConfig,
     authorizationCodeStore,
-    createBasicAuthHeader("test-client-id", "test-client-secret"),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
     tokenStore,
   );
 
@@ -182,7 +188,7 @@ test("POST token endpoint returns an opaque access token for valid code exchange
   assert.equal(typeof tokenResponse.access_token, "string");
   assert.notEqual(tokenResponse.access_token.length, 0);
   assert.deepEqual(tokenStore.get(tokenResponse.access_token), {
-    clientId: "test-client-id",
+    clientId: "client-id-opaque",
   });
   assert.equal(authorizationCodeStore.has("test-auth-code"), false);
 });
@@ -199,7 +205,7 @@ test("POST token endpoint makes authorization codes one-time use", async functio
     },
     defaultServerConfig,
     authorizationCodeStore,
-    createBasicAuthHeader("test-client-id", "test-client-secret"),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
     tokenStore,
   );
   assert.equal(firstResponse.status, 200);
@@ -212,7 +218,7 @@ test("POST token endpoint makes authorization codes one-time use", async functio
     },
     defaultServerConfig,
     authorizationCodeStore,
-    createBasicAuthHeader("test-client-id", "test-client-secret"),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
     tokenStore,
   );
 
@@ -223,6 +229,52 @@ test("POST token endpoint makes authorization codes one-time use", async functio
   });
 });
 
+test("POST token endpoint returns a signed jwt for jwt access token type", async function () {
+  const authorizationCodeStore =
+    createAuthorizationCodeStoreWithCodeForClient("client-id-jwt");
+  const tokenStore = createTokenStore();
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
+    tokenStore,
+  );
+
+  assert.equal(response.status, 200);
+  const tokenResponse = (await response.json()) as {
+    access_token: string;
+    token_type: string;
+  };
+  assert.equal(tokenResponse.token_type, "Bearer");
+
+  const verified = await jwtVerify(
+    tokenResponse.access_token,
+    defaultServerConfig.publicKey,
+    {
+      algorithms: ["RS256"],
+      issuer: defaultServerConfig.issuer,
+      audience: defaultServerConfig.issuer,
+    },
+  );
+  assert.equal(verified.protectedHeader.alg, "RS256");
+  assert.equal(verified.payload.iss, defaultServerConfig.issuer);
+  assert.equal(verified.payload.aud, defaultServerConfig.issuer);
+  assert.equal(verified.payload.sub, "client-id-jwt");
+  assert.equal(verified.payload.client_id, "client-id-jwt");
+  assert.equal(typeof verified.payload.jti, "string");
+  assert.notEqual(verified.payload.jti.length, 0);
+  assert.equal(typeof verified.payload.iat, "number");
+  assert.equal(typeof verified.payload.exp, "number");
+  assert.ok(verified.payload.exp > verified.payload.iat);
+  assert.equal(authorizationCodeStore.has("test-auth-code"), false);
+  assert.equal(tokenStore.size, 0);
+});
+
 async function fetchTokenEndpoint(
   queryParams: Record<string, string>,
   serverConfig: ServerConfig = defaultServerConfig,
@@ -230,7 +282,7 @@ async function fetchTokenEndpoint(
   authorizationHeader?: string,
   tokenStore: TokenStore = createTokenStore(),
 ) {
-  const fastify = createServer(
+  const fastify = await createServer(
     serverConfig,
     authorizationCodeStore,
     tokenStore,
@@ -262,13 +314,33 @@ async function fetchTokenEndpoint(
 }
 
 function createAuthorizationCodeStoreWithCode() {
-  return createAuthorizationCodeStoreWithCodeExpiresAt(Date.now() + 60_000);
+  return createAuthorizationCodeStoreWithCodeExpiresAtForClient(
+    Date.now() + 60_000,
+    "client-id-opaque",
+  );
 }
 
 function createAuthorizationCodeStoreWithCodeExpiresAt(expiresAt: number) {
+  return createAuthorizationCodeStoreWithCodeExpiresAtForClient(
+    expiresAt,
+    "client-id-opaque",
+  );
+}
+
+function createAuthorizationCodeStoreWithCodeForClient(clientId: string) {
+  return createAuthorizationCodeStoreWithCodeExpiresAtForClient(
+    Date.now() + 60_000,
+    clientId,
+  );
+}
+
+function createAuthorizationCodeStoreWithCodeExpiresAtForClient(
+  expiresAt: number,
+  clientId: string,
+) {
   const authorizationCodeStore = createAuthorizationCodeStore();
   authorizationCodeStore.set("test-auth-code", {
-    clientId: "test-client-id",
+    clientId,
     redirectUri: "http://localhost:3000/callback",
     expiresAt,
   });

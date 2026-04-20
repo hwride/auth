@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createRemoteJWKSet, generateKeyPair, jwtVerify } from "jose";
 import { createAuthorizationCodeStore } from "./authorization-code-store.ts";
 import type { ServerConfig } from "./config/server-config.ts";
 import { createServer } from "./server.ts";
@@ -9,7 +10,12 @@ import { createTokenStore } from "./token-store.ts";
   This test file is for testing more end to end flows of the authorization server.
  */
 
+const testSigningKeys = await generateKeyPair("RS256");
+
 const defaultServerConfig: ServerConfig = {
+  jwtSigningAlg: "RS256",
+  publicKey: testSigningKeys.publicKey,
+  privateKey: testSigningKeys.privateKey,
   issuer: "https://issuer.example.test",
   authorizationEndpoint: "https://issuer.example.test/authorize",
   tokenEndpoint: "https://issuer.example.test/token",
@@ -17,10 +23,10 @@ const defaultServerConfig: ServerConfig = {
   authorizationCodeLifetimeSeconds: 600,
 };
 
-test("authorization code can be issued and exchanged for an access token", async function () {
+test("authorization code can be issued and exchanged for an opaque access token", async function () {
   const authorizationCodeStore = createAuthorizationCodeStore();
   const tokenStore = createTokenStore();
-  const fastify = createServer(
+  const fastify = await createServer(
     defaultServerConfig,
     authorizationCodeStore,
     tokenStore,
@@ -31,7 +37,10 @@ test("authorization code can be issued and exchanged for an access token", async
   });
 
   try {
-    const authorizationResponse = await fetchAuthorizationEndpoint(address);
+    const authorizationResponse = await fetchAuthorizationEndpoint(
+      address,
+      "client-id-opaque",
+    );
     assert.equal(authorizationResponse.status, 302);
 
     const redirectUrl = getRedirectUrl(authorizationResponse);
@@ -44,7 +53,12 @@ test("authorization code can be issued and exchanged for an access token", async
     assert.notEqual(code, null);
     assert.equal(authorizationCodeStore.has(code), true);
 
-    const tokenResponse = await fetchTokenEndpoint(address, code);
+    const tokenResponse = await fetchTokenEndpoint(
+      address,
+      code,
+      "client-id-opaque",
+      "test-client-secret",
+    );
     assert.equal(tokenResponse.status, 200);
 
     const tokenResponseBody = (await tokenResponse.json()) as {
@@ -60,18 +74,94 @@ test("authorization code can be issued and exchanged for an access token", async
     assert.equal(authorizationCodeStore.has(code), false);
     // Check new access token is in the token store, for this client.
     assert.deepEqual(tokenStore.get(tokenResponseBody.access_token), {
-      clientId: "test-client-id",
+      clientId: "client-id-opaque",
     });
   } finally {
     await fastify.close();
   }
 });
 
-async function fetchAuthorizationEndpoint(address: string) {
+test("authorization code can be issued and exchanged for a jwt access token verified via the auth server jwks url", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const tokenStore = createTokenStore();
+  const fastify = await createServer(
+    defaultServerConfig,
+    authorizationCodeStore,
+    tokenStore,
+  );
+  const address = await fastify.listen({
+    host: "127.0.0.1",
+    port: 0,
+  });
+
+  try {
+    const authorizationResponse = await fetchAuthorizationEndpoint(
+      address,
+      "client-id-jwt",
+    );
+    assert.equal(authorizationResponse.status, 302);
+
+    const redirectUrl = getRedirectUrl(authorizationResponse);
+    const code = redirectUrl.searchParams.get("code");
+
+    assert.equal(
+      redirectUrl.toString(),
+      `http://localhost:3000/callback?code=${code}`,
+    );
+    assert.notEqual(code, null);
+    assert.equal(authorizationCodeStore.has(code), true);
+
+    const tokenResponse = await fetchTokenEndpoint(
+      address,
+      code,
+      "client-id-jwt",
+      "other-test-client-secret",
+    );
+    assert.equal(tokenResponse.status, 200);
+
+    const tokenResponseBody = (await tokenResponse.json()) as {
+      access_token: string;
+      token_type: string;
+    };
+
+    assert.equal(tokenResponseBody.token_type, "Bearer");
+    assert.equal(typeof tokenResponseBody.access_token, "string");
+    assert.notEqual(tokenResponseBody.access_token.length, 0);
+
+    const jwks = createRemoteJWKSet(
+      new URL(`${address}${new URL(defaultServerConfig.jwksUri).pathname}`),
+    );
+    const verified = await jwtVerify(tokenResponseBody.access_token, jwks, {
+      algorithms: ["RS256"],
+      issuer: defaultServerConfig.issuer,
+      audience: defaultServerConfig.issuer,
+    });
+
+    assert.equal(verified.protectedHeader.alg, "RS256");
+    assert.equal(verified.payload.iss, defaultServerConfig.issuer);
+    assert.equal(verified.payload.aud, defaultServerConfig.issuer);
+    assert.equal(verified.payload.sub, "client-id-jwt");
+    assert.equal(verified.payload.client_id, "client-id-jwt");
+    assert.equal(typeof verified.payload.jti, "string");
+    assert.notEqual(verified.payload.jti.length, 0);
+    assert.equal(typeof verified.payload.iat, "number");
+    assert.equal(typeof verified.payload.exp, "number");
+    assert.ok(verified.payload.exp > verified.payload.iat);
+
+    // Check auth code was removed.
+    assert.equal(authorizationCodeStore.has(code), false);
+    // JWT access tokens are self-contained and are not stored server-side.
+    assert.equal(tokenStore.size, 0);
+  } finally {
+    await fastify.close();
+  }
+});
+
+async function fetchAuthorizationEndpoint(address: string, clientId: string) {
   const authorizationPath = new URL(defaultServerConfig.authorizationEndpoint)
     .pathname;
   const queryString = new URLSearchParams({
-    client_id: "test-client-id",
+    client_id: clientId,
     response_type: "code",
     redirect_uri: "http://localhost:3000/callback",
   }).toString();
@@ -81,7 +171,12 @@ async function fetchAuthorizationEndpoint(address: string) {
   });
 }
 
-async function fetchTokenEndpoint(address: string, code: string) {
+async function fetchTokenEndpoint(
+  address: string,
+  code: string,
+  clientId: string,
+  clientSecret: string,
+) {
   const tokenPath = new URL(defaultServerConfig.tokenEndpoint).pathname;
   const requestBody = new URLSearchParams({
     grant_type: "authorization_code",
@@ -91,10 +186,7 @@ async function fetchTokenEndpoint(address: string, code: string) {
 
   return await fetch(`${address}${tokenPath}`, {
     headers: {
-      authorization: createBasicAuthHeader(
-        "test-client-id",
-        "test-client-secret",
-      ),
+      authorization: createBasicAuthHeader(clientId, clientSecret),
       "content-type": "application/x-www-form-urlencoded",
     },
     method: "POST",
