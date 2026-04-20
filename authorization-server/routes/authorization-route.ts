@@ -187,6 +187,7 @@ function createAuthorizationRedirectUrl(
   const code = randomUUID();
   authorizationCodeStore.set(code, {
     clientId: clientConfig.clientId,
+    subject: testUsername,
     redirectUri,
     expiresAt:
       Date.now() + serverConfig.authorizationCodeLifetimeSeconds * 1000,

@@ -63,10 +63,12 @@ test("POST authorization endpoint redirects with an authorization code after log
   assert.deepEqual(
     {
       clientId: codeRecord.clientId,
+      subject: codeRecord.subject,
       redirectUri: codeRecord.redirectUri,
     },
     {
       clientId: "client-id-opaque",
+      subject: "test-user",
       redirectUri: "http://localhost:3000/callback",
     },
   );

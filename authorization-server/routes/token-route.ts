@@ -131,7 +131,7 @@ export function registerTokenRoute(
       const token = await new SignJWT({
         iss: serverConfig.issuer,
         aud: serverConfig.issuer,
-        sub: clientConfig.clientId,
+        sub: authCodeRecord.subject,
         client_id: clientConfig.clientId,
         jti: randomUUID(),
       })

@@ -264,7 +264,7 @@ test("POST token endpoint returns a signed jwt for jwt access token type", async
   assert.equal(verified.protectedHeader.alg, "RS256");
   assert.equal(verified.payload.iss, defaultServerConfig.issuer);
   assert.equal(verified.payload.aud, defaultServerConfig.issuer);
-  assert.equal(verified.payload.sub, "client-id-jwt");
+  assert.equal(verified.payload.sub, "test-user");
   assert.equal(verified.payload.client_id, "client-id-jwt");
   assert.equal(typeof verified.payload.jti, "string");
   assert.notEqual(verified.payload.jti.length, 0);
@@ -341,6 +341,7 @@ function createAuthorizationCodeStoreWithCodeExpiresAtForClient(
   const authorizationCodeStore = createAuthorizationCodeStore();
   authorizationCodeStore.set("test-auth-code", {
     clientId,
+    subject: "test-user",
     redirectUri: "http://localhost:3000/callback",
     expiresAt,
   });

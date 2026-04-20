@@ -140,7 +140,7 @@ test("authorization code can be issued and exchanged for a jwt access token veri
     assert.equal(verified.protectedHeader.alg, "RS256");
     assert.equal(verified.payload.iss, defaultServerConfig.issuer);
     assert.equal(verified.payload.aud, defaultServerConfig.issuer);
-    assert.equal(verified.payload.sub, "client-id-jwt");
+    assert.equal(verified.payload.sub, "test-user");
     assert.equal(verified.payload.client_id, "client-id-jwt");
     assert.equal(typeof verified.payload.jti, "string");
     assert.notEqual(verified.payload.jti.length, 0);
