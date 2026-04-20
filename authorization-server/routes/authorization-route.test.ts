@@ -12,6 +12,7 @@ const defaultServerConfig: ServerConfig = {
   authorizationEndpoint: "https://issuer.example.test/authorize",
   tokenEndpoint: "https://issuer.example.test/token",
   jwksUri: "https://issuer.example.test/.well-known/jwks.json",
+  authorizationCodeLifetimeSeconds: 600,
 };
 
 test("GET authorization endpoint redirects with an authorization code", async function () {
@@ -34,10 +35,45 @@ test("GET authorization endpoint redirects with an authorization code", async fu
   assert.equal(redirectUrl.origin, "http://localhost:3000");
   assert.equal(redirectUrl.pathname, "/callback");
   assert.notEqual(code, null);
-  assert.deepEqual(authorizationCodeStore.get(code), {
-    clientId: "test-client-id",
-    redirectUri: "http://localhost:3000/callback",
-  });
+  const codeRecord = authorizationCodeStore.get(code);
+  assert.deepEqual(
+    {
+      clientId: codeRecord.clientId,
+      redirectUri: codeRecord.redirectUri,
+    },
+    {
+      clientId: "test-client-id",
+      redirectUri: "http://localhost:3000/callback",
+    },
+  );
+  assert.equal(typeof codeRecord.expiresAt, "number");
+  assert.ok(codeRecord.expiresAt > Date.now());
+});
+
+test("GET authorization endpoint sets code expiry from configured lifetime", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const response = await fetchAuthorizationEndpoint(
+    {
+      client_id: "test-client-id",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    {
+      ...defaultServerConfig,
+      authorizationCodeLifetimeSeconds: 2,
+    },
+    authorizationCodeStore,
+  );
+
+  assert.equal(response.status, 302);
+
+  const redirectUrl = getRedirectUrl(response);
+  const code = redirectUrl.searchParams.get("code");
+  assert.notEqual(code, null);
+
+  const codeRecord = authorizationCodeStore.get(code);
+  assert.ok(codeRecord.expiresAt > Date.now());
+  assert.ok(codeRecord.expiresAt <= Date.now() + 2_000);
 });
 
 test("GET authorization endpoint rejects requests missing redirect_uri", async function () {
@@ -115,10 +151,17 @@ test("GET authorization endpoint uses the configured endpoint path", async funct
   const code = redirectUrl.searchParams.get("code");
 
   assert.notEqual(code, null);
-  assert.deepEqual(authorizationCodeStore.get(code), {
-    clientId: "test-client-id",
-    redirectUri: "http://localhost:3000/callback",
-  });
+  const codeRecord = authorizationCodeStore.get(code);
+  assert.deepEqual(
+    {
+      clientId: codeRecord.clientId,
+      redirectUri: codeRecord.redirectUri,
+    },
+    {
+      clientId: "test-client-id",
+      redirectUri: "http://localhost:3000/callback",
+    },
+  );
 });
 
 async function fetchAuthorizationEndpoint(

@@ -1,6 +1,7 @@
 export type AuthorizationCodeRecord = {
   clientId: string;
   redirectUri: string;
+  expiresAt: number;
 };
 
 export type AuthorizationCodeStore = Map<string, AuthorizationCodeRecord>;

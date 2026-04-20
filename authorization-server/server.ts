@@ -49,12 +49,7 @@ export function createServer(
 
   registerOpenIdConfigurationRoute(fastify, serverConfig);
   registerAuthorizationRoute(fastify, serverConfig, authorizationCodeStore);
-  registerTokenRoute(
-    fastify,
-    serverConfig,
-    authorizationCodeStore,
-    tokenStore,
-  );
+  registerTokenRoute(fastify, serverConfig, authorizationCodeStore, tokenStore);
   registerJwksRoute(fastify);
 
   return fastify;

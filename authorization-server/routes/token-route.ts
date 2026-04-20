@@ -80,6 +80,14 @@ export function registerTokenRoute(
       });
     }
 
+    if (Date.now() > authCodeRecord.expiresAt) {
+      authorizationCodeStore.delete(request.body.code);
+      return reply.code(400).send({
+        error: "invalid_grant",
+        error_description: "Code expired",
+      });
+    }
+
     // Check the client that authenticated matches the one that asked for the auth code.
     if (authCodeRecord.clientId !== clientConfig.clientId) {
       return reply.code(400).send({
