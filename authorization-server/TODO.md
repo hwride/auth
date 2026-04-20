@@ -1,4 +1,5 @@
 - [ ] `state`
+- [ ] Allow multiple users
 - [ ] PKCE https://datatracker.ietf.org/doc/html/rfc7636
 - [ ] Support key rotation
 - [ ] Refresh tokens

@@ -1,5 +1,6 @@
 export type AuthorizationCodeRecord = {
   clientId: string;
+  subject: string;
   redirectUri: string;
   expiresAt: number;
 };
