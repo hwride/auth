@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { generateKeyPair } from "jose";
 import type { ServerConfig } from "../config/server-config.ts";
 import { createServer } from "../server.ts";
 
+const testSigningKeys = await generateKeyPair("RS256");
+
 test("GET /.well-known/openid-configuration defaults endpoints from the issuer", async function () {
   const response = await fetchOpenIdConfiguration({
+    jwtSigningAlg: "RS256",
+    publicKey: testSigningKeys.publicKey,
+    privateKey: testSigningKeys.privateKey,
     issuer: "https://issuer.example.test",
     authorizationEndpoint: "https://issuer.example.test/authorize",
     tokenEndpoint: "https://issuer.example.test/token",
@@ -27,6 +33,9 @@ test("GET /.well-known/openid-configuration defaults endpoints from the issuer",
 
 test("GET /.well-known/openid-configuration uses endpoint overrides when provided", async function () {
   const response = await fetchOpenIdConfiguration({
+    jwtSigningAlg: "RS256",
+    publicKey: testSigningKeys.publicKey,
+    privateKey: testSigningKeys.privateKey,
     issuer: "https://issuer.example.test",
     authorizationEndpoint: "https://login.example.test/oauth2/authorize",
     tokenEndpoint: "https://tokens.example.test/oauth2/token",
@@ -44,7 +53,7 @@ test("GET /.well-known/openid-configuration uses endpoint overrides when provide
 });
 
 async function fetchOpenIdConfiguration(serverConfig: ServerConfig) {
-  const fastify = createServer(serverConfig);
+  const fastify = await createServer(serverConfig);
 
   const address = await fastify.listen({
     host: "127.0.0.1",

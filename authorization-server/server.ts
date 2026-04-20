@@ -16,7 +16,7 @@ if (import.meta.main) {
 }
 
 async function main() {
-  const fastify = createServer();
+  const fastify = await createServer();
 
   try {
     await fastify.listen({ port: 4000 });
@@ -27,11 +27,12 @@ async function main() {
   }
 }
 
-export function createServer(
-  serverConfig: ServerConfig = getServerConfig(),
+export async function createServer(
+  serverConfig?: ServerConfig,
   authorizationCodeStore: AuthorizationCodeStore = createAuthorizationCodeStore(),
   tokenStore: TokenStore = createTokenStore(),
 ) {
+  const resolvedServerConfig = serverConfig ?? (await getServerConfig());
   const fastify = Fastify({
     logger: {
       transport: {
@@ -47,10 +48,19 @@ export function createServer(
 
   fastify.register(formbody);
 
-  registerOpenIdConfigurationRoute(fastify, serverConfig);
-  registerAuthorizationRoute(fastify, serverConfig, authorizationCodeStore);
-  registerTokenRoute(fastify, serverConfig, authorizationCodeStore, tokenStore);
-  registerJwksRoute(fastify);
+  registerOpenIdConfigurationRoute(fastify, resolvedServerConfig);
+  registerAuthorizationRoute(
+    fastify,
+    resolvedServerConfig,
+    authorizationCodeStore,
+  );
+  registerTokenRoute(
+    fastify,
+    resolvedServerConfig,
+    authorizationCodeStore,
+    tokenStore,
+  );
+  registerJwksRoute(fastify, resolvedServerConfig);
 
   return fastify;
 }

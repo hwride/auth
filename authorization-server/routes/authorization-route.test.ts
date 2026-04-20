@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { generateKeyPair } from "jose";
 import {
   createAuthorizationCodeStore,
   type AuthorizationCodeStore,
@@ -7,7 +8,12 @@ import {
 import type { ServerConfig } from "../config/server-config.ts";
 import { createServer } from "../server.ts";
 
+const testSigningKeys = await generateKeyPair("RS256");
+
 const defaultServerConfig: ServerConfig = {
+  jwtSigningAlg: "RS256",
+  publicKey: testSigningKeys.publicKey,
+  privateKey: testSigningKeys.privateKey,
   issuer: "https://issuer.example.test",
   authorizationEndpoint: "https://issuer.example.test/authorize",
   tokenEndpoint: "https://issuer.example.test/token",
@@ -19,7 +25,7 @@ test("GET authorization endpoint redirects with an authorization code", async fu
   const authorizationCodeStore = createAuthorizationCodeStore();
   const response = await fetchAuthorizationEndpoint(
     {
-      client_id: "test-client-id",
+      client_id: "client-id-opaque",
       response_type: "code",
       redirect_uri: "http://localhost:3000/callback",
     },
@@ -42,7 +48,7 @@ test("GET authorization endpoint redirects with an authorization code", async fu
       redirectUri: codeRecord.redirectUri,
     },
     {
-      clientId: "test-client-id",
+      clientId: "client-id-opaque",
       redirectUri: "http://localhost:3000/callback",
     },
   );
@@ -54,7 +60,7 @@ test("GET authorization endpoint sets code expiry from configured lifetime", asy
   const authorizationCodeStore = createAuthorizationCodeStore();
   const response = await fetchAuthorizationEndpoint(
     {
-      client_id: "test-client-id",
+      client_id: "client-id-opaque",
       response_type: "code",
       redirect_uri: "http://localhost:3000/callback",
     },
@@ -78,7 +84,7 @@ test("GET authorization endpoint sets code expiry from configured lifetime", asy
 
 test("GET authorization endpoint rejects requests missing redirect_uri", async function () {
   const response = await fetchAuthorizationEndpoint({
-    client_id: "test-client-id",
+    client_id: "client-id-opaque",
     response_type: "code",
   });
 
@@ -91,7 +97,7 @@ test("GET authorization endpoint rejects requests missing redirect_uri", async f
 
 test("GET authorization endpoint rejects invalid client_id", async function () {
   const response = await fetchAuthorizationEndpoint({
-    client_id: "not-test-client-id",
+    client_id: "not-client-id-opaque",
     response_type: "code",
     redirect_uri: "http://localhost:3000/callback",
   });
@@ -105,7 +111,7 @@ test("GET authorization endpoint rejects invalid client_id", async function () {
 
 test("GET authorization endpoint rejects invalid redirect_uri", async function () {
   const response = await fetchAuthorizationEndpoint({
-    client_id: "test-client-id",
+    client_id: "client-id-opaque",
     response_type: "code",
     redirect_uri: "https://client.example.test/callback",
   });
@@ -119,7 +125,7 @@ test("GET authorization endpoint rejects invalid redirect_uri", async function (
 
 test("GET authorization endpoint rejects unsupported response_type", async function () {
   const response = await fetchAuthorizationEndpoint({
-    client_id: "test-client-id",
+    client_id: "client-id-opaque",
     response_type: "token",
     redirect_uri: "http://localhost:3000/callback",
   });
@@ -134,7 +140,7 @@ test("GET authorization endpoint uses the configured endpoint path", async funct
   const authorizationCodeStore = createAuthorizationCodeStore();
   const response = await fetchAuthorizationEndpoint(
     {
-      client_id: "test-client-id",
+      client_id: "client-id-opaque",
       response_type: "code",
       redirect_uri: "http://localhost:3000/callback",
     },
@@ -158,7 +164,7 @@ test("GET authorization endpoint uses the configured endpoint path", async funct
       redirectUri: codeRecord.redirectUri,
     },
     {
-      clientId: "test-client-id",
+      clientId: "client-id-opaque",
       redirectUri: "http://localhost:3000/callback",
     },
   );
@@ -169,7 +175,7 @@ async function fetchAuthorizationEndpoint(
   serverConfig: ServerConfig = defaultServerConfig,
   authorizationCodeStore: AuthorizationCodeStore = createAuthorizationCodeStore(),
 ) {
-  const fastify = createServer(serverConfig, authorizationCodeStore);
+  const fastify = await createServer(serverConfig, authorizationCodeStore);
   const address = await fastify.listen({
     host: "127.0.0.1",
     port: 0,

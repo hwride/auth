@@ -1,4 +1,10 @@
+import { generateKeyPair } from "jose";
+import type { GenerateKeyPairResult } from "jose/key/generate/keypair";
+
 export type ServerConfig = {
+  jwtSigningAlg: "RS256";
+  publicKey: GenerateKeyPairResult["publicKey"];
+  privateKey: GenerateKeyPairResult["privateKey"];
   issuer: string;
   authorizationEndpoint: string;
   tokenEndpoint: string;
@@ -6,15 +12,20 @@ export type ServerConfig = {
   authorizationCodeLifetimeSeconds: number;
 };
 
-export function getServerConfig(): ServerConfig {
+export async function getServerConfig(): Promise<ServerConfig> {
   const issuerEnvVar = process.env.ISSUER;
   if (!issuerEnvVar) {
     throw new Error("Missing ISSUER");
   }
 
   const issuer = validateIssuer(issuerEnvVar);
+  const jwtSigningAlg = "RS256";
+  const { publicKey, privateKey } = await generateKeyPair(jwtSigningAlg);
 
   return {
+    jwtSigningAlg,
+    publicKey,
+    privateKey,
     issuer,
     authorizationEndpoint:
       process.env.AUTHORIZATION_ENDPOINT ?? `${issuer}/authorize`,
