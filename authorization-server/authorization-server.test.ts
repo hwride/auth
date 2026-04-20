@@ -37,7 +37,7 @@ test("authorization code can be issued and exchanged for an opaque access token"
   });
 
   try {
-    const authorizationResponse = await fetchAuthorizationEndpoint(
+    const authorizationResponse = await authorizeClient(
       address,
       "client-id-opaque",
     );
@@ -95,7 +95,7 @@ test("authorization code can be issued and exchanged for a jwt access token veri
   });
 
   try {
-    const authorizationResponse = await fetchAuthorizationEndpoint(
+    const authorizationResponse = await authorizeClient(
       address,
       "client-id-jwt",
     );
@@ -157,16 +157,37 @@ test("authorization code can be issued and exchanged for a jwt access token veri
   }
 });
 
-async function fetchAuthorizationEndpoint(address: string, clientId: string) {
+async function authorizeClient(address: string, clientId: string) {
   const authorizationPath = new URL(defaultServerConfig.authorizationEndpoint)
     .pathname;
-  const queryString = new URLSearchParams({
+  const authorizationRequest = {
     client_id: clientId,
     response_type: "code",
     redirect_uri: "http://localhost:3000/callback",
-  }).toString();
+  };
 
-  return await fetch(`${address}${authorizationPath}?${queryString}`, {
+  // Fetch the authorization request.
+  const queryString = new URLSearchParams(authorizationRequest).toString();
+  const loginPageResponse = await fetch(
+    `${address}${authorizationPath}?${queryString}`,
+    {
+      redirect: "manual",
+    },
+  );
+  assert.equal(loginPageResponse.status, 200);
+
+  // Submit the login form.
+  const loginRequestBody = new URLSearchParams({
+    ...authorizationRequest,
+    username: "test-user",
+    password: "test-password",
+  }).toString();
+  return await fetch(`${address}${authorizationPath}`, {
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    method: "POST",
+    body: loginRequestBody,
     redirect: "manual",
   });
 }

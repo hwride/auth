@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type { AuthorizationCodeStore } from "../authorization-code-store.ts";
-import { clientsConfig } from "../config/clients-config.ts";
+import { clientsConfig, type ClientConfig } from "../config/clients-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
+
+const testUsername = "test-user";
+const testPassword = "test-password";
 
 export function registerAuthorizationRoute(
   fastify: FastifyInstance,
@@ -12,6 +15,7 @@ export function registerAuthorizationRoute(
   const authorizationEndpointPath = new URL(serverConfig.authorizationEndpoint)
     .pathname;
 
+  // Main authorization endpoint.
   fastify.get<{
     Querystring: {
       client_id?: string;
@@ -19,53 +23,185 @@ export function registerAuthorizationRoute(
       redirect_uri?: string;
     };
   }>(authorizationEndpointPath, async function (request, reply) {
-    // Check for valid input.
-    // OAuth 2.0, Authorization Response, Error Response
-    // https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1
-    if (!request.query.redirect_uri) {
-      return reply.code(400).send({
+    const authorizationRequest = validateAuthorizationRequest(request.query);
+    if ("error" in authorizationRequest) {
+      return reply
+        .code(authorizationRequest.statusCode)
+        .send(authorizationRequest.error);
+    }
+
+    return reply
+      .type("text/html; charset=utf-8")
+      .send(renderLoginPage(authorizationEndpointPath, authorizationRequest));
+  });
+
+  // Endpoint to submit login form to if login is required.
+  fastify.post<{
+    Body: {
+      client_id?: string;
+      response_type?: string;
+      redirect_uri?: string;
+      username?: string;
+      password?: string;
+    };
+  }>(authorizationEndpointPath, async function (request, reply) {
+    const authorizationRequest = validateAuthorizationRequest(request.body);
+    if ("error" in authorizationRequest) {
+      return reply
+        .code(authorizationRequest.statusCode)
+        .send(authorizationRequest.error);
+    }
+
+    if (!isValidLogin(request.body.username, request.body.password)) {
+      return reply
+        .code(401)
+        .type("text/html; charset=utf-8")
+        .send(
+          renderLoginPage(
+            authorizationEndpointPath,
+            authorizationRequest,
+            "Invalid username or password",
+          ),
+        );
+    }
+
+    return reply.redirect(
+      createAuthorizationRedirectUrl(
+        serverConfig,
+        authorizationCodeStore,
+        authorizationRequest.clientConfig,
+        authorizationRequest.redirectUri,
+      ),
+    );
+  });
+}
+
+function validateAuthorizationRequest(input: {
+  client_id?: string;
+  response_type?: string;
+  redirect_uri?: string;
+}) {
+  // Check for valid input.
+  // OAuth 2.0, Authorization Response, Error Response
+  // https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1
+  if (!input.redirect_uri) {
+    return {
+      statusCode: 400,
+      error: {
         error: "invalid_request",
         error_description: "Missing redirect_uri",
-      });
-    }
+      },
+    };
+  }
 
-    // Check if this is a valid client.
-    const clientConfig = clientsConfig.find(function (client) {
-      return client.clientId === request.query.client_id;
-    });
-    if (!clientConfig) {
-      return reply.code(400).send({
+  const clientConfig = clientsConfig.find(function (client) {
+    return client.clientId === input.client_id;
+  });
+  if (!clientConfig) {
+    return {
+      statusCode: 400,
+      error: {
         error: "invalid_request",
         error_description: "Invalid client_id",
-      });
-    }
+      },
+    };
+  }
 
-    // Check if this is a valid redirect URI for the client.
-    if (!clientConfig.redirectUris.includes(request.query.redirect_uri)) {
-      return reply.code(400).send({
+  if (!clientConfig.redirectUris.includes(input.redirect_uri)) {
+    return {
+      statusCode: 400,
+      error: {
         error: "invalid_request",
         error_description: "Invalid redirect_uri",
-      });
-    }
+      },
+    };
+  }
 
-    if (request.query.response_type !== "code") {
-      return reply.code(400).send({
+  if (input.response_type !== "code") {
+    return {
+      statusCode: 400,
+      error: {
         error: "unsupported_response_type",
-      });
-    }
+      },
+    };
+  }
 
-    // Passed validation. Create a new authorization code and store it.
-    const code = randomUUID();
-    authorizationCodeStore.set(code, {
-      clientId: clientConfig.clientId,
-      redirectUri: request.query.redirect_uri,
-      expiresAt:
-        Date.now() + serverConfig.authorizationCodeLifetimeSeconds * 1000,
-    });
+  return {
+    clientConfig,
+    redirectUri: input.redirect_uri,
+    responseType: input.response_type,
+  };
+}
 
-    // Redirect to redirect_uri with code.
-    const redirectUri = new URL(request.query.redirect_uri);
-    redirectUri.searchParams.set("code", code);
-    return reply.redirect(redirectUri.toString());
+function renderLoginPage(
+  authorizationEndpointPath: string,
+  authorizationRequest: {
+    clientConfig: ClientConfig;
+    redirectUri: string;
+    responseType: string;
+  },
+  errorMessage?: string,
+) {
+  const escapedErrorMessage = errorMessage
+    ? `<p>${escapeHtml(errorMessage)}</p>`
+    : "";
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Login</title>
+  </head>
+  <body>
+    <h1>Login</h1>
+    <p>Sign in to continue for client ${escapeHtml(authorizationRequest.clientConfig.clientId)}.</p>
+    ${escapedErrorMessage}
+    <form method="post" action="${escapeHtml(authorizationEndpointPath)}">
+      <input type="hidden" name="client_id" value="${escapeHtml(authorizationRequest.clientConfig.clientId)}">
+      <input type="hidden" name="response_type" value="${escapeHtml(authorizationRequest.responseType)}">
+      <input type="hidden" name="redirect_uri" value="${escapeHtml(authorizationRequest.redirectUri)}">
+      <label>
+        Username
+        <input type="text" name="username" autocomplete="username" required>
+      </label>
+      <label>
+        Password
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit">Login</button>
+    </form>
+  </body>
+</html>`;
+}
+
+function isValidLogin(username?: string, password?: string) {
+  return username === testUsername && password === testPassword;
+}
+
+function createAuthorizationRedirectUrl(
+  serverConfig: ServerConfig,
+  authorizationCodeStore: AuthorizationCodeStore,
+  clientConfig: ClientConfig,
+  redirectUri: string,
+) {
+  const code = randomUUID();
+  authorizationCodeStore.set(code, {
+    clientId: clientConfig.clientId,
+    redirectUri,
+    expiresAt:
+      Date.now() + serverConfig.authorizationCodeLifetimeSeconds * 1000,
   });
+
+  const redirectUrl = new URL(redirectUri);
+  redirectUrl.searchParams.set("code", code);
+  return redirectUrl.toString();
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
