@@ -8,6 +8,7 @@ test("GET /.well-known/jwks.json returns an empty JWK set", async function () {
     authorizationEndpoint: "https://issuer.example.test/authorize",
     tokenEndpoint: "https://issuer.example.test/token",
     jwksUri: "https://issuer.example.test/.well-known/jwks.json",
+    authorizationCodeLifetimeSeconds: 600,
   });
 
   const address = await fastify.listen({

@@ -59,6 +59,8 @@ export function registerAuthorizationRoute(
     authorizationCodeStore.set(code, {
       clientId: clientConfig.clientId,
       redirectUri: request.query.redirect_uri,
+      expiresAt:
+        Date.now() + serverConfig.authorizationCodeLifetimeSeconds * 1000,
     });
 
     // Redirect to redirect_uri with code.

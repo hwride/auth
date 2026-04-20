@@ -3,6 +3,7 @@ export type ServerConfig = {
   authorizationEndpoint: string;
   tokenEndpoint: string;
   jwksUri: string;
+  authorizationCodeLifetimeSeconds: number;
 };
 
 export function getServerConfig(): ServerConfig {
@@ -19,6 +20,7 @@ export function getServerConfig(): ServerConfig {
       process.env.AUTHORIZATION_ENDPOINT ?? `${issuer}/authorize`,
     tokenEndpoint: process.env.TOKEN_ENDPOINT ?? `${issuer}/token`,
     jwksUri: process.env.JWKS_URI ?? `${issuer}/.well-known/jwks.json`,
+    authorizationCodeLifetimeSeconds: 600,
   };
 }
 

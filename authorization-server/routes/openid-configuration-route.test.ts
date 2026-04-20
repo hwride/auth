@@ -9,6 +9,7 @@ test("GET /.well-known/openid-configuration defaults endpoints from the issuer",
     authorizationEndpoint: "https://issuer.example.test/authorize",
     tokenEndpoint: "https://issuer.example.test/token",
     jwksUri: "https://issuer.example.test/.well-known/jwks.json",
+    authorizationCodeLifetimeSeconds: 600,
   });
 
   assert.equal(response.status, 200);
@@ -30,6 +31,7 @@ test("GET /.well-known/openid-configuration uses endpoint overrides when provide
     authorizationEndpoint: "https://login.example.test/oauth2/authorize",
     tokenEndpoint: "https://tokens.example.test/oauth2/token",
     jwksUri: "https://keys.example.test/oauth2/jwks.json",
+    authorizationCodeLifetimeSeconds: 600,
   });
 
   assert.equal(response.status, 200);

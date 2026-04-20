@@ -13,6 +13,7 @@ const defaultServerConfig: ServerConfig = {
   authorizationEndpoint: "https://issuer.example.test/authorize",
   tokenEndpoint: "https://issuer.example.test/token",
   jwksUri: "https://issuer.example.test/.well-known/jwks.json",
+  authorizationCodeLifetimeSeconds: 600,
 };
 
 test("POST token endpoint rejects unsupported grant_type", async function () {
@@ -96,6 +97,24 @@ test("POST token endpoint rejects unknown authorization code", async function ()
   assert.deepEqual(await response.json(), {
     error: "invalid_grant",
     error_description: "Unknown code",
+  });
+});
+
+test("POST token endpoint rejects expired authorization code", async function () {
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+    },
+    defaultServerConfig,
+    createAuthorizationCodeStoreWithCodeExpiresAt(Date.now() - 1),
+    createBasicAuthHeader("test-client-id", "test-client-secret"),
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: "invalid_grant",
+    error_description: "Code expired",
   });
 });
 
@@ -211,7 +230,11 @@ async function fetchTokenEndpoint(
   authorizationHeader?: string,
   tokenStore: TokenStore = createTokenStore(),
 ) {
-  const fastify = createServer(serverConfig, authorizationCodeStore, tokenStore);
+  const fastify = createServer(
+    serverConfig,
+    authorizationCodeStore,
+    tokenStore,
+  );
   const address = await fastify.listen({
     host: "127.0.0.1",
     port: 0,
@@ -239,10 +262,15 @@ async function fetchTokenEndpoint(
 }
 
 function createAuthorizationCodeStoreWithCode() {
+  return createAuthorizationCodeStoreWithCodeExpiresAt(Date.now() + 60_000);
+}
+
+function createAuthorizationCodeStoreWithCodeExpiresAt(expiresAt: number) {
   const authorizationCodeStore = createAuthorizationCodeStore();
   authorizationCodeStore.set("test-auth-code", {
     clientId: "test-client-id",
     redirectUri: "http://localhost:3000/callback",
+    expiresAt,
   });
   return authorizationCodeStore;
 }
