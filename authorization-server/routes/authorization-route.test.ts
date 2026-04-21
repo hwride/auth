@@ -99,6 +99,46 @@ test("POST authorization endpoint echoes state in the redirect when provided", a
   assert.equal(redirectUrl.searchParams.get("state"), "state-value-123");
 });
 
+test("POST authorization endpoint stores PKCE parameters with the authorization code", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const response = await submitAuthorizationLogin(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      code_challenge: "challenge-value-123",
+      code_challenge_method: "S256",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+  );
+
+  assert.equal(response.status, 302);
+
+  const redirectUrl = getRedirectUrl(response);
+  const code = redirectUrl.searchParams.get("code");
+  assert.notEqual(code, null);
+
+  const codeRecord = authorizationCodeStore.get(code);
+  assert.deepEqual(
+    {
+      clientId: codeRecord.clientId,
+      subject: codeRecord.subject,
+      redirectUri: codeRecord.redirectUri,
+      codeChallenge: codeRecord.codeChallenge,
+      codeChallengeMethod: codeRecord.codeChallengeMethod,
+    },
+    {
+      clientId: "client-id-opaque",
+      subject: "test-user",
+      redirectUri: "http://localhost:3000/callback",
+      codeChallenge: "challenge-value-123",
+      codeChallengeMethod: "S256",
+    },
+  );
+  assert.ok(codeRecord.expiresAt > Date.now());
+});
+
 test("POST authorization endpoint sets code expiry from configured lifetime", async function () {
   const authorizationCodeStore = createAuthorizationCodeStore();
   const response = await submitAuthorizationLogin(
@@ -177,6 +217,41 @@ test("GET authorization endpoint rejects unsupported response_type", async funct
   assert.deepEqual(await response.json(), {
     error: "unsupported_response_type",
   });
+});
+
+test("GET authorization endpoint rejects unsupported code_challenge_method", async function () {
+  const response = await fetchAuthorizationLoginPage({
+    client_id: "client-id-opaque",
+    response_type: "code",
+    redirect_uri: "http://localhost:3000/callback",
+    code_challenge: "test-challenge",
+    code_challenge_method: "S512",
+  });
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: "invalid_request",
+    error_description: "Unsupported code_challenge_method",
+  });
+});
+
+test("GET authorization endpoint sign up link preserves PKCE parameters", async function () {
+  const response = await fetchAuthorizationLoginPage({
+    client_id: "client-id-opaque",
+    response_type: "code",
+    redirect_uri: "http://localhost:3000/callback",
+    state: "state-value-123",
+    code_challenge: "challenge-value-123",
+    code_challenge_method: "S256",
+  });
+
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(
+    html,
+    /href="\/signup\?client_id=client-id-opaque&amp;response_type=code&amp;redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback&amp;state=state-value-123&amp;code_challenge=challenge-value-123&amp;code_challenge_method=S256"/,
+  );
 });
 
 test("POST authorization endpoint rejects invalid login credentials", async function () {

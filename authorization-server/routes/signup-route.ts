@@ -2,11 +2,13 @@ import type { FastifyInstance } from "fastify";
 import type { ServerConfig } from "../config/server-config.ts";
 import type { UserStore } from "../user-store.ts";
 
-type SignupState = {
+type SignupPageQueryParams = {
   client_id?: string;
   response_type?: string;
   redirect_uri?: string;
-  username?: string;
+  state?: string;
+  code_challenge?: string;
+  code_challenge_method?: string;
 };
 
 export function registerSignupRoute(
@@ -18,22 +20,14 @@ export function registerSignupRoute(
     .pathname;
 
   fastify.get<{
-    Querystring: {
-      client_id?: string;
-      response_type?: string;
-      redirect_uri?: string;
-    };
+    Querystring: SignupPageQueryParams;
   }>("/signup", async function (request, reply) {
-    return reply
-      .type("text/html; charset=utf-8")
-      .send(
-        renderSignupPage(
-          {
-            authorizationEndpointPath,
-            signupState: request.query,
-          },
-        ),
-      );
+    return reply.type("text/html; charset=utf-8").send(
+      renderSignupPage({
+        authorizationEndpointPath,
+        signupQueryParams: request.query,
+      }),
+    );
   });
 
   fastify.post<{
@@ -41,6 +35,9 @@ export function registerSignupRoute(
       client_id?: string;
       response_type?: string;
       redirect_uri?: string;
+      state?: string;
+      code_challenge?: string;
+      code_challenge_method?: string;
       username?: string;
       password?: string;
     };
@@ -53,13 +50,11 @@ export function registerSignupRoute(
         .code(400)
         .type("text/html; charset=utf-8")
         .send(
-          renderSignupPage(
-            {
-              authorizationEndpointPath,
-              signupState: request.body,
-              errorMessage: "Username and password are required",
-            },
-          ),
+          renderSignupPage({
+            authorizationEndpointPath,
+            signupQueryParams: request.body,
+            errorMessage: "Username and password are required",
+          }),
         );
     }
 
@@ -68,13 +63,11 @@ export function registerSignupRoute(
         .code(409)
         .type("text/html; charset=utf-8")
         .send(
-          renderSignupPage(
-            {
-              authorizationEndpointPath,
-              signupState: request.body,
-              errorMessage: "That username already exists",
-            },
-          ),
+          renderSignupPage({
+            authorizationEndpointPath,
+            signupQueryParams: request.body,
+            errorMessage: "That username already exists",
+          }),
         );
     }
 
@@ -90,22 +83,32 @@ export function registerSignupRoute(
     if (request.body.redirect_uri) {
       loginUrl.searchParams.set("redirect_uri", request.body.redirect_uri);
     }
+    if (request.body.state) {
+      loginUrl.searchParams.set("state", request.body.state);
+    }
+    if (request.body.code_challenge) {
+      loginUrl.searchParams.set("code_challenge", request.body.code_challenge);
+    }
+    if (request.body.code_challenge_method) {
+      loginUrl.searchParams.set(
+        "code_challenge_method",
+        request.body.code_challenge_method,
+      );
+    }
 
     return reply.redirect(loginUrl.pathname + loginUrl.search);
   });
 }
 
-function renderSignupPage(
-  {
-    authorizationEndpointPath,
-    signupState,
-    errorMessage,
-  }: {
-    authorizationEndpointPath: string;
-    signupState: SignupState;
-    errorMessage?: string;
-  },
-) {
+function renderSignupPage({
+  authorizationEndpointPath,
+  signupQueryParams,
+  errorMessage,
+}: {
+  authorizationEndpointPath: string;
+  signupQueryParams: SignupPageQueryParams;
+  errorMessage?: string;
+}) {
   const escapedErrorMessage = errorMessage
     ? `<p>${escapeHtml(errorMessage)}</p>`
     : "";
@@ -120,12 +123,15 @@ function renderSignupPage(
     <h1>Sign up</h1>
     ${escapedErrorMessage}
     <form method="post" action="/signup">
-      <input type="hidden" name="client_id" value="${escapeHtml(signupState.client_id ?? "")}">
-      <input type="hidden" name="response_type" value="${escapeHtml(signupState.response_type ?? "")}">
-      <input type="hidden" name="redirect_uri" value="${escapeHtml(signupState.redirect_uri ?? "")}">
+      <input type="hidden" name="client_id" value="${escapeHtml(signupQueryParams.client_id ?? "")}">
+      <input type="hidden" name="response_type" value="${escapeHtml(signupQueryParams.response_type ?? "")}">
+      <input type="hidden" name="redirect_uri" value="${escapeHtml(signupQueryParams.redirect_uri ?? "")}">
+      <input type="hidden" name="state" value="${escapeHtml(signupQueryParams.state ?? "")}">
+      <input type="hidden" name="code_challenge" value="${escapeHtml(signupQueryParams.code_challenge ?? "")}">
+      <input type="hidden" name="code_challenge_method" value="${escapeHtml(signupQueryParams.code_challenge_method ?? "")}">
       <label>
         Username
-        <input type="text" name="username" autocomplete="username" value="${escapeHtml(signupState.username ?? "")}" required>
+        <input type="text" name="username" autocomplete="username" required>
       </label>
       <label>
         Password
@@ -133,15 +139,12 @@ function renderSignupPage(
       </label>
       <button type="submit">Create account</button>
     </form>
-    <p><a href="${escapeHtml(createLinkWithParams(authorizationEndpointPath, signupState))}">Log in</a></p>
+    <p><a href="${escapeHtml(createLinkWithParams(authorizationEndpointPath, signupQueryParams))}">Log in</a></p>
   </body>
 </html>`;
 }
 
-function createLinkWithParams(
-  path: string,
-  params: SignupState,
-) {
+function createLinkWithParams(path: string, params: SignupPageQueryParams) {
   const url = new URL(path, "http://localhost");
   if (params.client_id) {
     url.searchParams.set("client_id", params.client_id);
@@ -151,6 +154,15 @@ function createLinkWithParams(
   }
   if (params.redirect_uri) {
     url.searchParams.set("redirect_uri", params.redirect_uri);
+  }
+  if (params.state) {
+    url.searchParams.set("state", params.state);
+  }
+  if (params.code_challenge) {
+    url.searchParams.set("code_challenge", params.code_challenge);
+  }
+  if (params.code_challenge_method) {
+    url.searchParams.set("code_challenge_method", params.code_challenge_method);
   }
   return url.pathname + url.search;
 }
