@@ -79,6 +79,26 @@ test("POST authorization endpoint redirects with an authorization code after log
   assert.ok(codeRecord.expiresAt > Date.now());
 });
 
+test("POST authorization endpoint echoes state in the redirect when provided", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const response = await submitAuthorizationLogin(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      state: "state-value-123",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+  );
+
+  assert.equal(response.status, 302);
+
+  const redirectUrl = getRedirectUrl(response);
+  assert.notEqual(redirectUrl.searchParams.get("code"), null);
+  assert.equal(redirectUrl.searchParams.get("state"), "state-value-123");
+});
+
 test("POST authorization endpoint sets code expiry from configured lifetime", async function () {
   const authorizationCodeStore = createAuthorizationCodeStore();
   const response = await submitAuthorizationLogin(

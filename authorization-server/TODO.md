@@ -1,7 +1,6 @@
 # To do
 Some potential things that could be added to this auth server.
 
-- [ ] `state`
 - [ ] PKCE https://datatracker.ietf.org/doc/html/rfc7636
 - [ ] Support key rotation
 - [ ] Refresh tokens
@@ -21,3 +20,4 @@ Some potential things that could be added to this auth server.
 - [x] Opaque access token
 - [x] JWT access token https://datatracker.ietf.org/doc/html/rfc9068
 - [x] Well known endpoint https://openid.net/specs/openid-connect-discovery-1_0.html
+- [x] `state`
