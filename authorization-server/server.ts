@@ -8,8 +8,10 @@ import { getServerConfig, type ServerConfig } from "./config/server-config.ts";
 import { registerAuthorizationRoute } from "./routes/authorization-route.ts";
 import { registerJwksRoute } from "./routes/jwks-route.ts";
 import { registerOpenIdConfigurationRoute } from "./routes/openid-configuration-route.ts";
+import { registerSignupRoute } from "./routes/signup-route.ts";
 import { registerTokenRoute } from "./routes/token-route.ts";
 import { createTokenStore, type TokenStore } from "./token-store.ts";
+import { createUserStore, type UserStore } from "./user-store.ts";
 
 if (import.meta.main) {
   main();
@@ -31,6 +33,7 @@ export async function createServer(
   serverConfig?: ServerConfig,
   authorizationCodeStore: AuthorizationCodeStore = createAuthorizationCodeStore(),
   tokenStore: TokenStore = createTokenStore(),
+  userStore: UserStore = createUserStore(),
 ) {
   const resolvedServerConfig = serverConfig ?? (await getServerConfig());
   const fastify = Fastify({
@@ -53,7 +56,9 @@ export async function createServer(
     fastify,
     resolvedServerConfig,
     authorizationCodeStore,
+    userStore,
   );
+  registerSignupRoute(fastify, resolvedServerConfig, userStore);
   registerTokenRoute(
     fastify,
     resolvedServerConfig,
