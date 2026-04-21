@@ -20,6 +20,7 @@ export function registerAuthorizationRoute(
       client_id?: string;
       response_type?: string;
       redirect_uri?: string;
+      state?: string;
     };
   }>(authorizationEndpointPath, async function (request, reply) {
     const authorizationRequest = validateAuthorizationRequest(request.query);
@@ -40,6 +41,7 @@ export function registerAuthorizationRoute(
       client_id?: string;
       response_type?: string;
       redirect_uri?: string;
+      state?: string;
       username?: string;
       password?: string;
     };
@@ -73,6 +75,7 @@ export function registerAuthorizationRoute(
         authorizationRequest.clientConfig,
         authorizationRequest.redirectUri,
         request.body.username as string,
+        authorizationRequest.state,
       ),
     );
   });
@@ -82,6 +85,7 @@ function validateAuthorizationRequest(input: {
   client_id?: string;
   response_type?: string;
   redirect_uri?: string;
+  state?: string;
 }) {
   // Check for valid input.
   // OAuth 2.0, Authorization Response, Error Response
@@ -132,6 +136,7 @@ function validateAuthorizationRequest(input: {
     clientConfig,
     redirectUri: input.redirect_uri,
     responseType: input.response_type,
+    state: input.state,
   };
 }
 
@@ -141,13 +146,22 @@ function renderLoginPage(
     clientConfig: ClientConfig;
     redirectUri: string;
     responseType: string;
+    state?: string;
   },
   errorMessage?: string,
 ) {
   const escapedErrorMessage = errorMessage
     ? `<p>${escapeHtml(errorMessage)}</p>`
     : "";
-  const signupPath = `/signup?client_id=${encodeURIComponent(authorizationRequest.clientConfig.clientId)}&response_type=${encodeURIComponent(authorizationRequest.responseType)}&redirect_uri=${encodeURIComponent(authorizationRequest.redirectUri)}`;
+  const signupPathSearchParams = new URLSearchParams({
+    client_id: authorizationRequest.clientConfig.clientId,
+    response_type: authorizationRequest.responseType,
+    redirect_uri: authorizationRequest.redirectUri,
+  });
+  if (authorizationRequest.state) {
+    signupPathSearchParams.set("state", authorizationRequest.state);
+  }
+  const signupPath = `/signup?${signupPathSearchParams.toString()}`;
 
   return `<!doctype html>
 <html lang="en">
@@ -163,6 +177,7 @@ function renderLoginPage(
       <input type="hidden" name="client_id" value="${escapeHtml(authorizationRequest.clientConfig.clientId)}">
       <input type="hidden" name="response_type" value="${escapeHtml(authorizationRequest.responseType)}">
       <input type="hidden" name="redirect_uri" value="${escapeHtml(authorizationRequest.redirectUri)}">
+      <input type="hidden" name="state" value="${escapeHtml(authorizationRequest.state ?? "")}">
       <label>
         Username
         <input type="text" name="username" autocomplete="username" required>
@@ -197,6 +212,7 @@ function createAuthorizationRedirectUrl(
   clientConfig: ClientConfig,
   redirectUri: string,
   subject: string,
+  state?: string,
 ) {
   const code = randomUUID();
   authorizationCodeStore.set(code, {
@@ -209,6 +225,9 @@ function createAuthorizationRedirectUrl(
 
   const redirectUrl = new URL(redirectUri);
   redirectUrl.searchParams.set("code", code);
+  if (state) {
+    redirectUrl.searchParams.set("state", state);
+  }
   return redirectUrl.toString();
 }
 
