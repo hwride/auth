@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { SignJWT } from "jose";
 import type { AuthorizationCodeStore } from "../authorization-code-store.ts";
@@ -26,6 +26,7 @@ export function registerTokenRoute(
       code?: string;
       grant_type?: string;
       redirect_uri?: string;
+      code_verifier?: string;
     };
   }>(tokenEndpointPath, async function (request, reply) {
     // Check client authentication
@@ -106,6 +107,27 @@ export function registerTokenRoute(
         error: "invalid_grant",
         error_description: "Invalid redirect_uri",
       });
+    }
+
+    // PKCE check. https://datatracker.ietf.org/doc/html/rfc7636
+    if (
+      authCodeRecord.codeChallengeMethod === "plain" &&
+      request.body.code_verifier !== authCodeRecord.codeChallenge
+    ) {
+      return reply.code(400).send({
+        error: "invalid_grant",
+        error_description: "plain code_verifier does not match",
+      });
+    } else if (authCodeRecord.codeChallengeMethod === "S256") {
+      const codeChallengeFromBody = createHash("sha256")
+        .update(request.body.code_verifier)
+        .digest("base64url");
+      if (codeChallengeFromBody !== authCodeRecord.codeChallenge) {
+        return reply.code(400).send({
+          error: "invalid_grant",
+          error_description: "S256 code_verifier does not match",
+        });
+      }
     }
 
     // Validation passed.

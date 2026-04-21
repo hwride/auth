@@ -3,6 +3,8 @@ export type AuthorizationCodeRecord = {
   subject: string;
   redirectUri: string;
   expiresAt: number;
+  codeChallenge?: string;
+  codeChallengeMethod?: "plain" | "S256";
 };
 
 export type AuthorizationCodeStore = Map<string, AuthorizationCodeRecord>;

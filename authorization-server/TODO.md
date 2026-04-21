@@ -1,7 +1,6 @@
 # To do
 Some potential things that could be added to this auth server.
 
-- [ ] PKCE https://datatracker.ietf.org/doc/html/rfc7636
 - [ ] Support key rotation
 - [ ] Refresh tokens
 - [ ] Refresh token rotation
@@ -13,6 +12,7 @@ Some potential things that could be added to this auth server.
 - [ ] Token exchange https://datatracker.ietf.org/doc/html/rfc8693
 - [ ] Dynamic client registration https://datatracker.ietf.org/doc/html/rfc7591
 - [ ] RBAC
+- [x] PKCE https://datatracker.ietf.org/doc/html/rfc7636
 - [x] Allow sign up
 - [x] Allow multiple users
 - [x] User sign in

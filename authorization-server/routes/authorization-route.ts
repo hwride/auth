@@ -5,6 +5,15 @@ import { clientsConfig, type ClientConfig } from "../config/clients-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 import type { UserStore } from "../user-store.ts";
 
+type AuthorizeQueryParams = {
+  client_id?: string;
+  response_type?: string;
+  redirect_uri?: string;
+  state?: string;
+  code_challenge?: string;
+  code_challenge_method?: string;
+};
+
 export function registerAuthorizationRoute(
   fastify: FastifyInstance,
   serverConfig: ServerConfig,
@@ -16,12 +25,7 @@ export function registerAuthorizationRoute(
 
   // Main authorization endpoint.
   fastify.get<{
-    Querystring: {
-      client_id?: string;
-      response_type?: string;
-      redirect_uri?: string;
-      state?: string;
-    };
+    Querystring: AuthorizeQueryParams;
   }>(authorizationEndpointPath, async function (request, reply) {
     const authorizationRequest = validateAuthorizationRequest(request.query);
     if ("error" in authorizationRequest) {
@@ -37,11 +41,7 @@ export function registerAuthorizationRoute(
 
   // Endpoint to submit login form to if login is required.
   fastify.post<{
-    Body: {
-      client_id?: string;
-      response_type?: string;
-      redirect_uri?: string;
-      state?: string;
+    Body: AuthorizeQueryParams & {
       username?: string;
       password?: string;
     };
@@ -72,21 +72,29 @@ export function registerAuthorizationRoute(
       createAuthorizationRedirectUrl(
         serverConfig,
         authorizationCodeStore,
-        authorizationRequest.clientConfig,
-        authorizationRequest.redirectUri,
+        authorizationRequest,
         request.body.username as string,
-        authorizationRequest.state,
       ),
     );
   });
 }
 
-function validateAuthorizationRequest(input: {
-  client_id?: string;
-  response_type?: string;
-  redirect_uri?: string;
+type AuthorizationRequest = {
+  clientConfig: ClientConfig;
+  redirectUri: string;
+  responseType: string;
   state?: string;
-}) {
+  codeChallenge?: string;
+  codeChallengeMethod?: "plain" | "S256";
+};
+type AuthorizationRequestError = {
+  statusCode: number;
+  error: { error: string; error_description?: string };
+};
+
+function validateAuthorizationRequest(
+  input: AuthorizeQueryParams,
+): AuthorizationRequest | AuthorizationRequestError {
   // Check for valid input.
   // OAuth 2.0, Authorization Response, Error Response
   // https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1
@@ -100,6 +108,7 @@ function validateAuthorizationRequest(input: {
     };
   }
 
+  // Check for a matching client.
   const clientConfig = clientsConfig.find(function (client) {
     return client.clientId === input.client_id;
   });
@@ -113,6 +122,7 @@ function validateAuthorizationRequest(input: {
     };
   }
 
+  // Check for matching redirect URI.
   if (!clientConfig.redirectUris.includes(input.redirect_uri)) {
     return {
       statusCode: 400,
@@ -123,6 +133,7 @@ function validateAuthorizationRequest(input: {
     };
   }
 
+  // Check for supported grant type.
   if (input.response_type !== "code") {
     return {
       statusCode: 400,
@@ -132,22 +143,39 @@ function validateAuthorizationRequest(input: {
     };
   }
 
-  return {
+  const successResponse: AuthorizationRequest = {
     clientConfig,
     redirectUri: input.redirect_uri,
     responseType: input.response_type,
     state: input.state,
   };
+
+  // Expose PKCE data. https://datatracker.ietf.org/doc/html/rfc7636
+  if (input.code_challenge) {
+    if (
+      input.code_challenge_method != null &&
+      !["plain", "S256"].includes(input.code_challenge_method)
+    ) {
+      return {
+        statusCode: 400,
+        error: {
+          error: "invalid_request",
+          error_description: "Unsupported code_challenge_method",
+        },
+      };
+    }
+
+    successResponse.codeChallenge = input.code_challenge;
+    successResponse.codeChallengeMethod =
+      input.code_challenge_method === "S256" ? "S256" : "plain";
+  }
+
+  return successResponse;
 }
 
 function renderLoginPage(
   authorizationEndpointPath: string,
-  authorizationRequest: {
-    clientConfig: ClientConfig;
-    redirectUri: string;
-    responseType: string;
-    state?: string;
-  },
+  authorizationRequest: AuthorizationRequest,
   errorMessage?: string,
 ) {
   const escapedErrorMessage = errorMessage
@@ -158,9 +186,17 @@ function renderLoginPage(
     response_type: authorizationRequest.responseType,
     redirect_uri: authorizationRequest.redirectUri,
   });
-  if (authorizationRequest.state) {
-    signupPathSearchParams.set("state", authorizationRequest.state);
-  }
+  const setIfExists = (
+    sourceKey: Exclude<keyof AuthorizationRequest, "clientConfig">,
+    targetKey: string,
+  ) => {
+    if (authorizationRequest[sourceKey]) {
+      signupPathSearchParams.set(targetKey, authorizationRequest[sourceKey]);
+    }
+  };
+  setIfExists("state", "state");
+  setIfExists("codeChallenge", "code_challenge");
+  setIfExists("codeChallengeMethod", "code_challenge_method");
   const signupPath = `/signup?${signupPathSearchParams.toString()}`;
 
   return `<!doctype html>
@@ -178,6 +214,8 @@ function renderLoginPage(
       <input type="hidden" name="response_type" value="${escapeHtml(authorizationRequest.responseType)}">
       <input type="hidden" name="redirect_uri" value="${escapeHtml(authorizationRequest.redirectUri)}">
       <input type="hidden" name="state" value="${escapeHtml(authorizationRequest.state ?? "")}">
+      <input type="hidden" name="code_challenge" value="${escapeHtml(authorizationRequest.codeChallenge ?? "")}">
+      <input type="hidden" name="code_challenge_method" value="${escapeHtml(authorizationRequest.codeChallengeMethod ?? "")}">
       <label>
         Username
         <input type="text" name="username" autocomplete="username" required>
@@ -209,24 +247,24 @@ function isValidLogin(
 function createAuthorizationRedirectUrl(
   serverConfig: ServerConfig,
   authorizationCodeStore: AuthorizationCodeStore,
-  clientConfig: ClientConfig,
-  redirectUri: string,
+  authorizationRequest: AuthorizationRequest,
   subject: string,
-  state?: string,
 ) {
   const code = randomUUID();
   authorizationCodeStore.set(code, {
-    clientId: clientConfig.clientId,
+    clientId: authorizationRequest.clientConfig.clientId,
     subject,
-    redirectUri,
+    redirectUri: authorizationRequest.redirectUri,
     expiresAt:
       Date.now() + serverConfig.authorizationCodeLifetimeSeconds * 1000,
+    codeChallenge: authorizationRequest.codeChallenge,
+    codeChallengeMethod: authorizationRequest.codeChallengeMethod,
   });
 
-  const redirectUrl = new URL(redirectUri);
+  const redirectUrl = new URL(authorizationRequest.redirectUri);
   redirectUrl.searchParams.set("code", code);
-  if (state) {
-    redirectUrl.searchParams.set("state", state);
+  if (authorizationRequest.state) {
+    redirectUrl.searchParams.set("state", authorizationRequest.state);
   }
   return redirectUrl.toString();
 }
