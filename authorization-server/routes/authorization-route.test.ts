@@ -7,6 +7,7 @@ import {
 } from "../authorization-code-store.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 import { createServer } from "../server.ts";
+import { createUserStore, type UserStore } from "../user-store.ts";
 
 const testSigningKeys = await generateKeyPair("RS256");
 
@@ -34,7 +35,10 @@ test("GET authorization endpoint renders a login form for a valid request", asyn
   );
 
   assert.equal(response.status, 200);
-  assert.equal(response.headers.get("content-type"), "text/html; charset=utf-8");
+  assert.equal(
+    response.headers.get("content-type"),
+    "text/html; charset=utf-8",
+  );
   assert.match(await response.text(), /<form method="post"/);
   assert.equal(authorizationCodeStore.size, 0);
 });
@@ -172,9 +176,23 @@ test("POST authorization endpoint rejects invalid login credentials", async func
   );
 
   assert.equal(response.status, 401);
-  assert.equal(response.headers.get("content-type"), "text/html; charset=utf-8");
+  assert.equal(
+    response.headers.get("content-type"),
+    "text/html; charset=utf-8",
+  );
   assert.match(await response.text(), /Invalid username or password/);
   assert.equal(authorizationCodeStore.size, 0);
+});
+
+test("GET authorization endpoint includes a sign up link", async function () {
+  const response = await fetchAuthorizationLoginPage({
+    client_id: "client-id-opaque",
+    response_type: "code",
+    redirect_uri: "http://localhost:3000/callback",
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /Sign up/);
 });
 
 test("GET authorization endpoint uses the configured endpoint path", async function () {
@@ -200,8 +218,14 @@ async function fetchAuthorizationLoginPage(
   queryParams: Record<string, string>,
   serverConfig: ServerConfig = defaultServerConfig,
   authorizationCodeStore: AuthorizationCodeStore = createAuthorizationCodeStore(),
+  userStore: UserStore = createUserStore(),
 ) {
-  const fastify = await createServer(serverConfig, authorizationCodeStore);
+  const fastify = await createServer(
+    serverConfig,
+    authorizationCodeStore,
+    undefined,
+    userStore,
+  );
   const address = await fastify.listen({
     host: "127.0.0.1",
     port: 0,
@@ -231,8 +255,14 @@ async function submitAuthorizationLogin(
     username: "test-user",
     password: "test-password",
   },
+  userStore: UserStore = createUserStore(),
 ) {
-  const fastify = await createServer(serverConfig, authorizationCodeStore);
+  const fastify = await createServer(
+    serverConfig,
+    authorizationCodeStore,
+    undefined,
+    userStore,
+  );
   const address = await fastify.listen({
     host: "127.0.0.1",
     port: 0,

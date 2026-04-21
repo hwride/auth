@@ -5,6 +5,7 @@ import { createAuthorizationCodeStore } from "./authorization-code-store.ts";
 import type { ServerConfig } from "./config/server-config.ts";
 import { createServer } from "./server.ts";
 import { createTokenStore } from "./token-store.ts";
+import { createUserStore } from "./user-store.ts";
 
 /*
   This test file is for testing more end to end flows of the authorization server.
@@ -157,7 +158,106 @@ test("authorization code can be issued and exchanged for a jwt access token veri
   }
 });
 
-async function authorizeClient(address: string, clientId: string) {
+test("signup route creates a user who can then log in and receive a valid jwt access token", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const tokenStore = createTokenStore();
+  const userStore = createUserStore([]);
+  const fastify = await createServer(
+    defaultServerConfig,
+    authorizationCodeStore,
+    tokenStore,
+    userStore,
+  );
+  const address = await fastify.listen({
+    host: "127.0.0.1",
+    port: 0,
+  });
+
+  try {
+    const signupResponse = await submitSignupForm(address, {
+      client_id: "client-id-jwt",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      username: "new-user",
+      password: "new-password",
+    });
+
+    assert.equal(signupResponse.status, 302);
+    assert.equal(userStore.loadUser("new-user")?.password, "new-password");
+
+    const authorizationResponse = await authorizeClient(
+      address,
+      "client-id-jwt",
+      {
+        username: "new-user",
+        password: "new-password",
+      },
+    );
+
+    assert.equal(authorizationResponse.status, 302);
+
+    const redirectUrl = getRedirectUrl(authorizationResponse);
+    const code = redirectUrl.searchParams.get("code");
+    assert.notEqual(code, null);
+    assert.equal(authorizationCodeStore.has(code), true);
+
+    const tokenResponse = await fetchTokenEndpoint(
+      address,
+      code,
+      "client-id-jwt",
+      "other-test-client-secret",
+    );
+
+    assert.equal(tokenResponse.status, 200);
+
+    const tokenResponseBody = (await tokenResponse.json()) as {
+      access_token: string;
+      token_type: string;
+    };
+
+    assert.equal(tokenResponseBody.token_type, "Bearer");
+    assert.equal(typeof tokenResponseBody.access_token, "string");
+    assert.notEqual(tokenResponseBody.access_token.length, 0);
+
+    const jwks = createRemoteJWKSet(
+      new URL(`${address}${new URL(defaultServerConfig.jwksUri).pathname}`),
+    );
+    // Check JWT is valid according to our published JWKS public keys.
+    const verified = await jwtVerify(tokenResponseBody.access_token, jwks, {
+      algorithms: ["RS256"],
+      issuer: defaultServerConfig.issuer,
+      audience: defaultServerConfig.issuer,
+    });
+
+    assert.equal(verified.protectedHeader.alg, "RS256");
+    assert.equal(verified.payload.iss, defaultServerConfig.issuer);
+    assert.equal(verified.payload.aud, defaultServerConfig.issuer);
+    assert.equal(verified.payload.sub, "new-user"); // Check sub matches our new user.
+    assert.equal(verified.payload.client_id, "client-id-jwt");
+    assert.equal(typeof verified.payload.jti, "string");
+    assert.notEqual(verified.payload.jti.length, 0);
+    assert.equal(typeof verified.payload.iat, "number");
+    assert.equal(typeof verified.payload.exp, "number");
+    assert.ok(verified.payload.exp > verified.payload.iat);
+
+    assert.equal(authorizationCodeStore.has(code), false);
+    assert.equal(tokenStore.size, 0);
+  } finally {
+    await fastify.close();
+  }
+});
+
+async function authorizeClient(
+  address: string,
+  clientId: string,
+  credentials: {
+    username: string;
+    password: string;
+  } = {
+    username: "test-user",
+    password: "test-password",
+  },
+) {
   const authorizationPath = new URL(defaultServerConfig.authorizationEndpoint)
     .pathname;
   const authorizationRequest = {
@@ -179,8 +279,8 @@ async function authorizeClient(address: string, clientId: string) {
   // Submit the login form.
   const loginRequestBody = new URLSearchParams({
     ...authorizationRequest,
-    username: "test-user",
-    password: "test-password",
+    username: credentials.username,
+    password: credentials.password,
   }).toString();
   return await fetch(`${address}${authorizationPath}`, {
     headers: {
@@ -212,6 +312,22 @@ async function fetchTokenEndpoint(
     },
     method: "POST",
     body: requestBody,
+  });
+}
+
+async function submitSignupForm(
+  address: string,
+  formData: Record<string, string>,
+) {
+  const requestBody = new URLSearchParams(formData).toString();
+
+  return await fetch(`${address}/signup`, {
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    method: "POST",
+    body: requestBody,
+    redirect: "manual",
   });
 }
 

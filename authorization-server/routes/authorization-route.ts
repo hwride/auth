@@ -3,14 +3,13 @@ import type { FastifyInstance } from "fastify";
 import type { AuthorizationCodeStore } from "../authorization-code-store.ts";
 import { clientsConfig, type ClientConfig } from "../config/clients-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
-
-const testUsername = "test-user";
-const testPassword = "test-password";
+import type { UserStore } from "../user-store.ts";
 
 export function registerAuthorizationRoute(
   fastify: FastifyInstance,
   serverConfig: ServerConfig,
   authorizationCodeStore: AuthorizationCodeStore,
+  userStore: UserStore,
 ) {
   const authorizationEndpointPath = new URL(serverConfig.authorizationEndpoint)
     .pathname;
@@ -52,7 +51,9 @@ export function registerAuthorizationRoute(
         .send(authorizationRequest.error);
     }
 
-    if (!isValidLogin(request.body.username, request.body.password)) {
+    if (
+      !isValidLogin(userStore, request.body.username, request.body.password)
+    ) {
       return reply
         .code(401)
         .type("text/html; charset=utf-8")
@@ -71,6 +72,7 @@ export function registerAuthorizationRoute(
         authorizationCodeStore,
         authorizationRequest.clientConfig,
         authorizationRequest.redirectUri,
+        request.body.username as string,
       ),
     );
   });
@@ -145,6 +147,7 @@ function renderLoginPage(
   const escapedErrorMessage = errorMessage
     ? `<p>${escapeHtml(errorMessage)}</p>`
     : "";
+  const signupPath = `/signup?client_id=${encodeURIComponent(authorizationRequest.clientConfig.clientId)}&response_type=${encodeURIComponent(authorizationRequest.responseType)}&redirect_uri=${encodeURIComponent(authorizationRequest.redirectUri)}`;
 
   return `<!doctype html>
 <html lang="en">
@@ -170,12 +173,22 @@ function renderLoginPage(
       </label>
       <button type="submit">Login</button>
     </form>
+    <p><a href="${escapeHtml(signupPath)}">Sign up</a></p>
   </body>
 </html>`;
 }
 
-function isValidLogin(username?: string, password?: string) {
-  return username === testUsername && password === testPassword;
+function isValidLogin(
+  userStore: UserStore,
+  username?: string,
+  password?: string,
+) {
+  if (!username || !password) {
+    return false;
+  }
+
+  const user = userStore.loadUser(username);
+  return user?.password === password;
 }
 
 function createAuthorizationRedirectUrl(
@@ -183,11 +196,12 @@ function createAuthorizationRedirectUrl(
   authorizationCodeStore: AuthorizationCodeStore,
   clientConfig: ClientConfig,
   redirectUri: string,
+  subject: string,
 ) {
   const code = randomUUID();
   authorizationCodeStore.set(code, {
     clientId: clientConfig.clientId,
-    subject: testUsername,
+    subject,
     redirectUri,
     expiresAt:
       Date.now() + serverConfig.authorizationCodeLifetimeSeconds * 1000,

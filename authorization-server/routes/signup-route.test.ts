@@ -1,0 +1,173 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { generateKeyPair } from "jose";
+import { createAuthorizationCodeStore } from "../authorization-code-store.ts";
+import type { ServerConfig } from "../config/server-config.ts";
+import { createServer } from "../server.ts";
+import { createUserStore } from "../user-store.ts";
+
+const testSigningKeys = await generateKeyPair("RS256");
+
+const defaultServerConfig: ServerConfig = {
+  jwtSigningAlg: "RS256",
+  publicKey: testSigningKeys.publicKey,
+  privateKey: testSigningKeys.privateKey,
+  issuer: "https://issuer.example.test",
+  authorizationEndpoint: "https://issuer.example.test/authorize",
+  tokenEndpoint: "https://issuer.example.test/token",
+  jwksUri: "https://issuer.example.test/.well-known/jwks.json",
+  authorizationCodeLifetimeSeconds: 600,
+};
+
+test("GET signup route renders a signup form that preserves the authorization request", async function () {
+  const response = await fetchSignupPage({
+    client_id: "client-id-opaque",
+    response_type: "code",
+    redirect_uri: "http://localhost:3000/callback",
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(
+    response.headers.get("content-type"),
+    "text/html; charset=utf-8",
+  );
+
+  const html = await response.text();
+  assert.match(html, /<form method="post" action="\/signup">/);
+  assert.match(html, /name="client_id" value="client-id-opaque"/);
+  assert.match(html, /name="response_type" value="code"/);
+  assert.match(
+    html,
+    /name="redirect_uri" value="http:\/\/localhost:3000\/callback"/,
+  );
+  assert.match(
+    html,
+    /href="\/authorize\?client_id=client-id-opaque&amp;response_type=code&amp;redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback"/,
+  );
+});
+
+test("POST signup route requires both username and password", async function () {
+  const response = await submitSignupForm({
+    client_id: "client-id-opaque",
+    response_type: "code",
+    redirect_uri: "http://localhost:3000/callback",
+    username: "new-user",
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(
+    response.headers.get("content-type"),
+    "text/html; charset=utf-8",
+  );
+
+  const html = await response.text();
+  assert.match(html, /Username and password are required/);
+  assert.match(html, /name="username" autocomplete="username" value="new-user"/);
+});
+
+test("POST signup route rejects duplicate usernames", async function () {
+  const response = await submitSignupForm(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      username: "existing-user",
+      password: "new-password",
+    },
+    createUserStore([
+      {
+        username: "existing-user",
+        password: "existing-password",
+      },
+    ]),
+  );
+
+  assert.equal(response.status, 409);
+  assert.equal(
+    response.headers.get("content-type"),
+    "text/html; charset=utf-8",
+  );
+
+  const html = await response.text();
+  assert.match(html, /That username already exists/);
+  assert.match(
+    html,
+    /name="username" autocomplete="username" value="existing-user"/,
+  );
+});
+
+test("POST signup route creates a user and redirects back to the authorization endpoint", async function () {
+  const userStore = createUserStore([]);
+  const response = await submitSignupForm(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      username: "new-user",
+      password: "new-password",
+    },
+    userStore,
+  );
+
+  assert.equal(response.status, 302);
+  assert.equal(userStore.loadUser("new-user")?.password, "new-password");
+  assert.equal(
+    response.headers.get("location"),
+    "/authorize?client_id=client-id-opaque&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback",
+  );
+});
+
+async function fetchSignupPage(
+  queryParams: Record<string, string>,
+  serverConfig: ServerConfig = defaultServerConfig,
+) {
+  const fastify = await createServer(
+    serverConfig,
+    createAuthorizationCodeStore(),
+  );
+  const address = await fastify.listen({
+    host: "127.0.0.1",
+    port: 0,
+  });
+
+  try {
+    const queryString = new URLSearchParams(queryParams).toString();
+    return await fetch(`${address}/signup?${queryString}`, {
+      redirect: "manual",
+    });
+  } finally {
+    await fastify.close();
+  }
+}
+
+async function submitSignupForm(
+  formData: Record<string, string>,
+  userStore = createUserStore(),
+  serverConfig: ServerConfig = defaultServerConfig,
+) {
+  const fastify = await createServer(
+    serverConfig,
+    createAuthorizationCodeStore(),
+    undefined,
+    userStore,
+  );
+  const address = await fastify.listen({
+    host: "127.0.0.1",
+    port: 0,
+  });
+
+  try {
+    const requestBody = new URLSearchParams(formData).toString();
+
+    return await fetch(`${address}/signup`, {
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      method: "POST",
+      body: requestBody,
+      redirect: "manual",
+    });
+  } finally {
+    await fastify.close();
+  }
+}
