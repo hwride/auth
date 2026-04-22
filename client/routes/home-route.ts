@@ -6,6 +6,8 @@ export function registerHomeRoute(
   authFlowContext: AuthFlowContext,
 ) {
   fastify.get("/", async function (_, reply) {
+    const defaultAudience = process.env.DEFAULT_AUDIENCE?.trim() ?? "";
+
     return reply.view("index.ejs", {
       authServerBaseUrl: authFlowContext.authServerBaseUrl,
       discoveryUrlUsed: authFlowContext.discoveryUrl,
@@ -13,6 +15,8 @@ export function registerHomeRoute(
       tokenEndpointUsed: authFlowContext.tokenEndpoint,
       jwksUrlUsed: authFlowContext.jwksUri,
       clientId: process.env.CLIENT_ID,
+      defaultAudience,
+      useDefaultAudience: !!defaultAudience,
       accessToken: authFlowContext.accessToken,
       idToken: authFlowContext.idToken,
       refreshToken: authFlowContext.refreshToken,

@@ -8,5 +8,7 @@ An OAuth Client. Mainly implemented for testing and learning. Not for use in pro
 - `AUTH_SERVER_BASE`
 - `CLIENT_ID`
 - `CLIENT_SECRET`
-2. Start the development server:
+1. Optionally set:
+- `DEFAULT_AUDIENCE` to prefill the API audience field
+1. Start the development server:
 - `npm run dev`

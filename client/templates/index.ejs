@@ -143,12 +143,17 @@
           Use Proof Key for Code Exchange (PKCE)?
         </label>
         <label>
-          <input type="checkbox" id="audience-checkbox" />
+          <input
+            type="checkbox"
+            id="audience-checkbox"
+            <%= useDefaultAudience ? "checked" : "" %>
+          />
           Use audience?
           <input
             type="text"
             id="audience-input"
             placeholder="https://api.example.com/"
+            value="<%= defaultAudience %>"
           />
         </label>
       </fieldset>
