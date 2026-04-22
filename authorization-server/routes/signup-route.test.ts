@@ -24,6 +24,7 @@ test("GET signup route renders a signup form that preserves the authorization re
     client_id: "client-id-opaque",
     response_type: "code",
     redirect_uri: "http://localhost:3000/callback",
+    scope: "openid profile",
     state: "state-value-123",
     code_challenge: "challenge-value-123",
     code_challenge_method: "S256",
@@ -43,12 +44,13 @@ test("GET signup route renders a signup form that preserves the authorization re
     html,
     /name="redirect_uri" value="http:\/\/localhost:3000\/callback"/,
   );
+  assert.match(html, /name="scope" value="openid profile"/);
   assert.match(html, /name="state" value="state-value-123"/);
   assert.match(html, /name="code_challenge" value="challenge-value-123"/);
   assert.match(html, /name="code_challenge_method" value="S256"/);
   assert.match(
     html,
-    /href="\/authorize\?client_id=client-id-opaque&amp;response_type=code&amp;redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback&amp;state=state-value-123&amp;code_challenge=challenge-value-123&amp;code_challenge_method=S256"/,
+    /href="\/authorize\?client_id=client-id-opaque&amp;response_type=code&amp;redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback&amp;state=state-value-123&amp;scope=openid\+profile&amp;code_challenge=challenge-value-123&amp;code_challenge_method=S256"/,
   );
 });
 
@@ -106,6 +108,7 @@ test("POST signup route creates a user and redirects back to the authorization e
       client_id: "client-id-opaque",
       response_type: "code",
       redirect_uri: "http://localhost:3000/callback",
+      scope: "openid profile",
       state: "state-value-123",
       code_challenge: "challenge-value-123",
       code_challenge_method: "S256",
@@ -119,7 +122,7 @@ test("POST signup route creates a user and redirects back to the authorization e
   assert.equal(userStore.loadUser("new-user")?.password, "new-password");
   assert.equal(
     response.headers.get("location"),
-    "/authorize?client_id=client-id-opaque&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback&state=state-value-123&code_challenge=challenge-value-123&code_challenge_method=S256",
+    "/authorize?client_id=client-id-opaque&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback&state=state-value-123&scope=openid+profile&code_challenge=challenge-value-123&code_challenge_method=S256",
   );
 });
 

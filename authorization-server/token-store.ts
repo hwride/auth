@@ -1,5 +1,6 @@
 export type AccessTokenRecord = {
   clientId: string;
+  scope?: string;
 };
 
 export type TokenStore = Map<string, AccessTokenRecord>;
