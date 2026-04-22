@@ -233,10 +233,12 @@ test("POST token endpoint returns an opaque access token for valid plain PKCE ex
 
   const tokenResponse = (await response.json()) as {
     access_token: string;
+    expires_in: number;
     token_type: string;
   };
 
   assert.equal(tokenResponse.token_type, "Bearer");
+  assert.equal(tokenResponse.expires_in, 3600);
   assert.equal(typeof tokenResponse.access_token, "string");
   assert.notEqual(tokenResponse.access_token.length, 0);
   assert.deepEqual(tokenStore.get(tokenResponse.access_token), {
@@ -270,10 +272,12 @@ test("POST token endpoint returns an opaque access token for valid S256 PKCE exc
 
   const tokenResponse = (await response.json()) as {
     access_token: string;
+    expires_in: number;
     token_type: string;
   };
 
   assert.equal(tokenResponse.token_type, "Bearer");
+  assert.equal(tokenResponse.expires_in, 3600);
   assert.equal(typeof tokenResponse.access_token, "string");
   assert.notEqual(tokenResponse.access_token.length, 0);
   assert.deepEqual(tokenStore.get(tokenResponse.access_token), {
@@ -302,10 +306,12 @@ test("POST token endpoint returns an opaque access token for valid code exchange
 
   const tokenResponse = (await response.json()) as {
     access_token: string;
+    expires_in: number;
     token_type: string;
   };
 
   assert.equal(tokenResponse.token_type, "Bearer");
+  assert.equal(tokenResponse.expires_in, 3600);
   assert.equal(typeof tokenResponse.access_token, "string");
   assert.notEqual(tokenResponse.access_token.length, 0);
   assert.deepEqual(tokenStore.get(tokenResponse.access_token), {
@@ -371,9 +377,11 @@ test("POST token endpoint returns a signed jwt for jwt access token type", async
   assertSensitiveTokenResponseHeaders(response);
   const tokenResponse = (await response.json()) as {
     access_token: string;
+    expires_in: number;
     token_type: string;
   };
   assert.equal(tokenResponse.token_type, "Bearer");
+  assert.equal(tokenResponse.expires_in, 3600);
 
   const verified = await jwtVerify(
     tokenResponse.access_token,
@@ -420,8 +428,10 @@ test("POST token endpoint includes scope in access tokens when present on auth c
   assertSensitiveTokenResponseHeaders(response);
   const tokenResponse = (await response.json()) as {
     access_token: string;
+    expires_in: number;
   };
 
+  assert.equal(tokenResponse.expires_in, 3600);
   const verified = await jwtVerify(
     tokenResponse.access_token,
     defaultServerConfig.publicKey,
@@ -456,11 +466,13 @@ test("POST token endpoint returns an ID token when scope includes openid token",
   assertSensitiveTokenResponseHeaders(response);
   const tokenResponse = (await response.json()) as {
     access_token: string;
+    expires_in: number;
     id_token: string;
     token_type: string;
   };
 
   assert.equal(tokenResponse.token_type, "Bearer");
+  assert.equal(tokenResponse.expires_in, 3600);
   assert.equal(typeof tokenResponse.id_token, "string");
   assert.notEqual(tokenResponse.id_token.length, 0);
 
@@ -539,10 +551,12 @@ test("POST token endpoint does not return an ID token when scope only contains o
   const tokenResponse = (await response.json()) as {
     access_token: string;
     id_token?: string;
+    expires_in: number;
     token_type: string;
   };
 
   assert.equal(tokenResponse.token_type, "Bearer");
+  assert.equal(tokenResponse.expires_in, 3600);
   assert.equal(tokenResponse.id_token, undefined);
 });
 
