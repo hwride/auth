@@ -1,10 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
-import { SignJWT } from "jose";
+import { type JWTPayload, SignJWT } from "jose";
 import type { AuthorizationCodeStore } from "../authorization-code-store.ts";
 import { clientsConfig } from "../config/clients-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
-import type { TokenStore } from "../token-store.ts";
+import type { AccessTokenRecord, TokenStore } from "../token-store.ts";
 
 /**
  * OAuth 2.0, Authorization Code Grant, Access Token Request
@@ -137,9 +137,13 @@ export function registerTokenRoute(
     if (clientConfig.accessTokenType === "opaque") {
       // Generate and save an access token.
       const accessToken = randomUUID();
-      tokenStore.set(accessToken, {
+      const accessTokenRecord: AccessTokenRecord = {
         clientId: clientConfig.clientId,
-      });
+      };
+      if (authCodeRecord.scope) {
+        accessTokenRecord.scope = authCodeRecord.scope;
+      }
+      tokenStore.set(accessToken, accessTokenRecord);
 
       return reply.send({
         access_token: accessToken,
@@ -150,13 +154,18 @@ export function registerTokenRoute(
     else {
       // JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens
       // https://datatracker.ietf.org/doc/html/rfc9068
-      const token = await new SignJWT({
+      const payload: JWTPayload = {
         iss: serverConfig.issuer,
         aud: serverConfig.issuer,
         sub: authCodeRecord.subject,
         client_id: clientConfig.clientId,
+        ...(authCodeRecord.scope ? { scope: authCodeRecord.scope } : {}),
         jti: randomUUID(),
-      })
+      };
+      if (authCodeRecord.scope) {
+        payload.scope = authCodeRecord.scope;
+      }
+      const token = await new SignJWT(payload)
         .setProtectedHeader({ alg: serverConfig.jwtSigningAlg })
         .setIssuedAt()
         .setExpirationTime("1h")

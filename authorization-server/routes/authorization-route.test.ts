@@ -139,6 +139,30 @@ test("POST authorization endpoint stores PKCE parameters with the authorization 
   assert.ok(codeRecord.expiresAt > Date.now());
 });
 
+test("POST authorization endpoint stores scope with the authorization code", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const response = await submitAuthorizationLogin(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      scope: "read:profile write:profile",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+  );
+
+  assert.equal(response.status, 302);
+
+  const redirectUrl = getRedirectUrl(response);
+  const code = redirectUrl.searchParams.get("code");
+  assert.notEqual(code, null);
+
+  const codeRecord = authorizationCodeStore.get(code);
+  assert.equal(codeRecord.scope, "read:profile write:profile");
+  assert.ok(codeRecord.expiresAt > Date.now());
+});
+
 test("POST authorization endpoint sets code expiry from configured lifetime", async function () {
   const authorizationCodeStore = createAuthorizationCodeStore();
   const response = await submitAuthorizationLogin(
@@ -251,6 +275,23 @@ test("GET authorization endpoint sign up link preserves PKCE parameters", async 
   assert.match(
     html,
     /href="\/signup\?client_id=client-id-opaque&amp;response_type=code&amp;redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback&amp;state=state-value-123&amp;code_challenge=challenge-value-123&amp;code_challenge_method=S256"/,
+  );
+});
+
+test("GET authorization endpoint sign up link preserves scope parameter", async function () {
+  const response = await fetchAuthorizationLoginPage({
+    client_id: "client-id-opaque",
+    response_type: "code",
+    redirect_uri: "http://localhost:3000/callback",
+    scope: "openid profile",
+  });
+
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(
+    html,
+    /href="\/signup\?client_id=client-id-opaque&amp;response_type=code&amp;redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback&amp;scope=openid\+profile"/,
   );
 });
 

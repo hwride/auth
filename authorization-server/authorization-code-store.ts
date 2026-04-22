@@ -2,6 +2,7 @@ export type AuthorizationCodeRecord = {
   clientId: string;
   subject: string;
   redirectUri: string;
+  scope?: string;
   expiresAt: number;
   codeChallenge?: string;
   codeChallengeMethod?: "plain" | "S256";

@@ -393,6 +393,43 @@ test("POST token endpoint returns a signed jwt for jwt access token type", async
   assert.equal(tokenStore.size, 0);
 });
 
+test("POST token endpoint includes scope in access tokens when present on auth code", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
+    "client-id-jwt",
+    "openid profile",
+  );
+  const tokenStore = createTokenStore();
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
+    tokenStore,
+  );
+
+  assert.equal(response.status, 200);
+  const tokenResponse = (await response.json()) as {
+    access_token: string;
+  };
+
+  const verified = await jwtVerify(
+    tokenResponse.access_token,
+    defaultServerConfig.publicKey,
+    {
+      algorithms: ["RS256"],
+      issuer: defaultServerConfig.issuer,
+      audience: defaultServerConfig.issuer,
+    },
+  );
+
+  assert.equal(verified.payload.scope, "openid profile");
+  assert.equal(tokenStore.size, 0);
+});
+
 async function fetchTokenEndpoint(
   queryParams: Record<string, string>,
   serverConfig: ServerConfig = defaultServerConfig,
@@ -445,22 +482,28 @@ function createAuthorizationCodeStoreWithCodeExpiresAt(expiresAt: number) {
   );
 }
 
-function createAuthorizationCodeStoreWithCodeForClient(clientId: string) {
+function createAuthorizationCodeStoreWithCodeForClient(
+  clientId: string,
+  scope?: string,
+) {
   return createAuthorizationCodeStoreWithCodeExpiresAtForClient(
     Date.now() + 60_000,
     clientId,
+    scope,
   );
 }
 
 function createAuthorizationCodeStoreWithCodeExpiresAtForClient(
   expiresAt: number,
   clientId: string,
+  scope?: string,
 ) {
   const authorizationCodeStore = createAuthorizationCodeStore();
   authorizationCodeStore.set("test-auth-code", {
     clientId,
     subject: "test-user",
     redirectUri: "http://localhost:3000/callback",
+    scope,
     expiresAt,
   });
   return authorizationCodeStore;

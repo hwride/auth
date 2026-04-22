@@ -6,6 +6,7 @@ type SignupPageQueryParams = {
   client_id?: string;
   response_type?: string;
   redirect_uri?: string;
+  scope?: string;
   state?: string;
   code_challenge?: string;
   code_challenge_method?: string;
@@ -35,6 +36,7 @@ export function registerSignupRoute(
       client_id?: string;
       response_type?: string;
       redirect_uri?: string;
+      scope?: string;
       state?: string;
       code_challenge?: string;
       code_challenge_method?: string;
@@ -86,6 +88,9 @@ export function registerSignupRoute(
     if (request.body.state) {
       loginUrl.searchParams.set("state", request.body.state);
     }
+    if (request.body.scope) {
+      loginUrl.searchParams.set("scope", request.body.scope);
+    }
     if (request.body.code_challenge) {
       loginUrl.searchParams.set("code_challenge", request.body.code_challenge);
     }
@@ -126,6 +131,7 @@ function renderSignupPage({
       <input type="hidden" name="client_id" value="${escapeHtml(signupQueryParams.client_id ?? "")}">
       <input type="hidden" name="response_type" value="${escapeHtml(signupQueryParams.response_type ?? "")}">
       <input type="hidden" name="redirect_uri" value="${escapeHtml(signupQueryParams.redirect_uri ?? "")}">
+      <input type="hidden" name="scope" value="${escapeHtml(signupQueryParams.scope ?? "")}">
       <input type="hidden" name="state" value="${escapeHtml(signupQueryParams.state ?? "")}">
       <input type="hidden" name="code_challenge" value="${escapeHtml(signupQueryParams.code_challenge ?? "")}">
       <input type="hidden" name="code_challenge_method" value="${escapeHtml(signupQueryParams.code_challenge_method ?? "")}">
@@ -157,6 +163,9 @@ function createLinkWithParams(path: string, params: SignupPageQueryParams) {
   }
   if (params.state) {
     url.searchParams.set("state", params.state);
+  }
+  if (params.scope) {
+    url.searchParams.set("scope", params.scope);
   }
   if (params.code_challenge) {
     url.searchParams.set("code_challenge", params.code_challenge);
