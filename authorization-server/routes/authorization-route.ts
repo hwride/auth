@@ -10,6 +10,7 @@ type AuthorizeQueryParams = {
   response_type?: string;
   redirect_uri?: string;
   scope?: string;
+  nonce?: string;
   state?: string;
   code_challenge?: string;
   code_challenge_method?: string;
@@ -85,6 +86,7 @@ type AuthorizationRequest = {
   redirectUri: string;
   responseType: string;
   scope?: string;
+  nonce?: string;
   state?: string;
   codeChallenge?: string;
   codeChallengeMethod?: "plain" | "S256";
@@ -150,6 +152,7 @@ function validateAuthorizationRequest(
     redirectUri: input.redirect_uri,
     responseType: input.response_type,
     scope: input.scope,
+    nonce: input.nonce,
     state: input.state,
   };
 
@@ -199,6 +202,7 @@ function renderLoginPage(
   };
   setIfExists("state", "state");
   setIfExists("scope", "scope");
+  setIfExists("nonce", "nonce");
   setIfExists("codeChallenge", "code_challenge");
   setIfExists("codeChallengeMethod", "code_challenge_method");
   const signupPath = `/signup?${signupPathSearchParams.toString()}`;
@@ -218,6 +222,7 @@ function renderLoginPage(
       <input type="hidden" name="response_type" value="${escapeHtml(authorizationRequest.responseType)}">
       <input type="hidden" name="redirect_uri" value="${escapeHtml(authorizationRequest.redirectUri)}">
       <input type="hidden" name="scope" value="${escapeHtml(authorizationRequest.scope ?? "")}">
+      <input type="hidden" name="nonce" value="${escapeHtml(authorizationRequest.nonce ?? "")}">
       <input type="hidden" name="state" value="${escapeHtml(authorizationRequest.state ?? "")}">
       <input type="hidden" name="code_challenge" value="${escapeHtml(authorizationRequest.codeChallenge ?? "")}">
       <input type="hidden" name="code_challenge_method" value="${escapeHtml(authorizationRequest.codeChallengeMethod ?? "")}">
@@ -261,6 +266,7 @@ function createAuthorizationRedirectUrl(
     subject,
     redirectUri: authorizationRequest.redirectUri,
     scope: authorizationRequest.scope,
+    nonce: authorizationRequest.nonce,
     expiresAt:
       Date.now() + serverConfig.authorizationCodeLifetimeSeconds * 1000,
     codeChallenge: authorizationRequest.codeChallenge,

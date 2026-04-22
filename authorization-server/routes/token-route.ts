@@ -147,12 +147,16 @@ export function registerTokenRoute(
 
     // https://openid.net/specs/openid-connect-core-1_0.html
     if (hasOpenIdScope(authCodeRecord.scope)) {
-      response.id_token = await new SignJWT({
+      const idTokenPayload: JWTPayload = {
         iss: serverConfig.issuer,
         aud: authCodeRecord.clientId,
         sub: authCodeRecord.subject,
         jti: randomUUID(),
-      })
+      };
+      if (authCodeRecord.nonce) {
+        idTokenPayload.nonce = authCodeRecord.nonce;
+      }
+      response.id_token = await new SignJWT(idTokenPayload)
         .setProtectedHeader({ alg: serverConfig.jwtSigningAlg })
         .setIssuedAt()
         .setExpirationTime("1h")
