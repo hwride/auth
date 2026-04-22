@@ -3,6 +3,7 @@ Some potential things that could be added to this auth server.
 
 - [ ] OIDC
 - [ ] `nonce`
+- [ ] Add `expires_in` to token response
 - [ ] RBAC
 - [ ] Refresh tokens
 - [ ] Refresh token rotation

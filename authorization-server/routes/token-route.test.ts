@@ -229,6 +229,7 @@ test("POST token endpoint returns an opaque access token for valid plain PKCE ex
   );
 
   assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
 
   const tokenResponse = (await response.json()) as {
     access_token: string;
@@ -265,6 +266,7 @@ test("POST token endpoint returns an opaque access token for valid S256 PKCE exc
   );
 
   assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
 
   const tokenResponse = (await response.json()) as {
     access_token: string;
@@ -296,6 +298,7 @@ test("POST token endpoint returns an opaque access token for valid code exchange
   );
 
   assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
 
   const tokenResponse = (await response.json()) as {
     access_token: string;
@@ -327,6 +330,7 @@ test("POST token endpoint makes authorization codes one-time use", async functio
     tokenStore,
   );
   assert.equal(firstResponse.status, 200);
+  assertSensitiveTokenResponseHeaders(firstResponse);
 
   const secondResponse = await fetchTokenEndpoint(
     {
@@ -364,6 +368,7 @@ test("POST token endpoint returns a signed jwt for jwt access token type", async
   );
 
   assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
   const tokenResponse = (await response.json()) as {
     access_token: string;
     token_type: string;
@@ -412,6 +417,7 @@ test("POST token endpoint includes scope in access tokens when present on auth c
   );
 
   assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
   const tokenResponse = (await response.json()) as {
     access_token: string;
   };
@@ -611,6 +617,11 @@ function createBasicAuthHeader(clientId: string, clientSecret: string) {
     "base64",
   );
   return `Basic ${basicAuth}`;
+}
+
+function assertSensitiveTokenResponseHeaders(response: Response) {
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("pragma"), "no-cache");
 }
 
 function createS256CodeChallenge(codeVerifier: string) {

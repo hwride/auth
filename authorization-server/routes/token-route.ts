@@ -10,6 +10,8 @@ import type { AccessTokenRecord, TokenStore } from "../token-store.ts";
  * OAuth 2.0, Authorization Code Grant, Access Token Request
  * https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3
  *
+ * OAuth 2.0, Issuing an Access Token, Successful Response
+ * https://datatracker.ietf.org/doc/html/rfc6749#section-5.1
  * OAuth 2.0, Issuing an Access Token, Error Response
  * https://datatracker.ietf.org/doc/html/rfc6749#section-5.2
  */
@@ -190,7 +192,14 @@ export function registerTokenRoute(
         .sign(serverConfig.privateKey);
     }
 
-    return reply.send(response);
+    return (
+      reply
+        // https://datatracker.ietf.org/doc/html/rfc6749#section-5.1
+        // These headers are required by spec for token responses.
+        .header("Cache-Control", "no-store")
+        .header("Pragma", "no-cache")
+        .send(response)
+    );
   });
 }
 
