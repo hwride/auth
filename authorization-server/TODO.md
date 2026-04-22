@@ -1,17 +1,17 @@
 # To do
 Some potential things that could be added to this auth server.
 
-- [ ] Support key rotation
-- [ ] Refresh tokens
-- [ ] Refresh token rotation
 - [ ] OIDC
 - [ ] `nonce`
-- [ ] Scopes
+- [ ] RBAC
+- [ ] Refresh tokens
+- [ ] Refresh token rotation
+- [ ] Support key rotation
 - [ ] Resource indicators https://datatracker.ietf.org/doc/html/rfc8707
 - [ ] Token introspection https://datatracker.ietf.org/doc/html/rfc7662
 - [ ] Token exchange https://datatracker.ietf.org/doc/html/rfc8693
 - [ ] Dynamic client registration https://datatracker.ietf.org/doc/html/rfc7591
-- [ ] RBAC
+- [x] Scopes
 - [x] PKCE https://datatracker.ietf.org/doc/html/rfc7636
 - [x] Allow sign up
 - [x] Allow multiple users
