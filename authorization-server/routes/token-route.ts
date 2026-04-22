@@ -134,6 +134,29 @@ export function registerTokenRoute(
     // Remove the authorization code so it can't be re-used.
     authorizationCodeStore.delete(request.body.code);
 
+    const response: {
+      access_token: string;
+      id_token?: string;
+      token_type: "Bearer";
+    } = {
+      access_token: "",
+      token_type: "Bearer",
+    };
+
+    // https://openid.net/specs/openid-connect-core-1_0.html
+    if (hasOpenIdScope(authCodeRecord.scope)) {
+      response.id_token = await new SignJWT({
+        iss: serverConfig.issuer,
+        aud: authCodeRecord.clientId,
+        sub: authCodeRecord.subject,
+        jti: randomUUID(),
+      })
+        .setProtectedHeader({ alg: serverConfig.jwtSigningAlg })
+        .setIssuedAt()
+        .setExpirationTime("1h")
+        .sign(serverConfig.privateKey);
+    }
+
     if (clientConfig.accessTokenType === "opaque") {
       // Generate and save an access token.
       const accessToken = randomUUID();
@@ -144,11 +167,7 @@ export function registerTokenRoute(
         accessTokenRecord.scope = authCodeRecord.scope;
       }
       tokenStore.set(accessToken, accessTokenRecord);
-
-      return reply.send({
-        access_token: accessToken,
-        token_type: "Bearer",
-      });
+      response.access_token = accessToken;
     }
     // accessTokenType === "jwt"
     else {
@@ -159,23 +178,19 @@ export function registerTokenRoute(
         aud: serverConfig.issuer,
         sub: authCodeRecord.subject,
         client_id: clientConfig.clientId,
-        ...(authCodeRecord.scope ? { scope: authCodeRecord.scope } : {}),
         jti: randomUUID(),
       };
       if (authCodeRecord.scope) {
         payload.scope = authCodeRecord.scope;
       }
-      const token = await new SignJWT(payload)
+      response.access_token = await new SignJWT(payload)
         .setProtectedHeader({ alg: serverConfig.jwtSigningAlg })
         .setIssuedAt()
         .setExpirationTime("1h")
         .sign(serverConfig.privateKey);
-
-      return reply.send({
-        access_token: token,
-        token_type: "Bearer",
-      });
     }
+
+    return reply.send(response);
   });
 }
 
@@ -199,4 +214,8 @@ function parseBasicAuthorizationHeader(
     clientId: decodedCredentials.slice(0, separatorIndex),
     clientSecret: decodedCredentials.slice(separatorIndex + 1),
   };
+}
+
+function hasOpenIdScope(scope: string | undefined) {
+  return scope?.split(/\s+/).includes("openid") ?? false;
 }

@@ -430,6 +430,80 @@ test("POST token endpoint includes scope in access tokens when present on auth c
   assert.equal(tokenStore.size, 0);
 });
 
+test("POST token endpoint returns an ID token when scope includes openid token", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
+    "client-id-jwt",
+    "profile openid email",
+  );
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
+  );
+
+  assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
+  const tokenResponse = (await response.json()) as {
+    access_token: string;
+    id_token: string;
+    token_type: string;
+  };
+
+  assert.equal(tokenResponse.token_type, "Bearer");
+  assert.equal(typeof tokenResponse.id_token, "string");
+  assert.notEqual(tokenResponse.id_token.length, 0);
+
+  const verified = await jwtVerify(
+    tokenResponse.id_token,
+    defaultServerConfig.publicKey,
+    {
+      algorithms: ["RS256"],
+      issuer: defaultServerConfig.issuer,
+      audience: "client-id-jwt",
+    },
+  );
+
+  assert.equal(verified.protectedHeader.alg, "RS256");
+  assert.equal(verified.payload.iss, defaultServerConfig.issuer);
+  assert.equal(verified.payload.aud, "client-id-jwt");
+  assert.equal(verified.payload.sub, "test-user");
+  assert.equal(typeof verified.payload.jti, "string");
+  assert.notEqual(verified.payload.jti.length, 0);
+});
+
+test("POST token endpoint does not return an ID token when scope only contains openid as a substring", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
+    "client-id-jwt",
+    "profile notopenid email",
+  );
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
+  );
+
+  assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
+  const tokenResponse = (await response.json()) as {
+    access_token: string;
+    id_token?: string;
+    token_type: string;
+  };
+
+  assert.equal(tokenResponse.token_type, "Bearer");
+  assert.equal(tokenResponse.id_token, undefined);
+});
+
 async function fetchTokenEndpoint(
   queryParams: Record<string, string>,
   serverConfig: ServerConfig = defaultServerConfig,
