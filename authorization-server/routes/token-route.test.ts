@@ -229,6 +229,7 @@ test("POST token endpoint returns an opaque access token for valid plain PKCE ex
   );
 
   assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
 
   const tokenResponse = (await response.json()) as {
     access_token: string;
@@ -265,6 +266,7 @@ test("POST token endpoint returns an opaque access token for valid S256 PKCE exc
   );
 
   assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
 
   const tokenResponse = (await response.json()) as {
     access_token: string;
@@ -296,6 +298,7 @@ test("POST token endpoint returns an opaque access token for valid code exchange
   );
 
   assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
 
   const tokenResponse = (await response.json()) as {
     access_token: string;
@@ -327,6 +330,7 @@ test("POST token endpoint makes authorization codes one-time use", async functio
     tokenStore,
   );
   assert.equal(firstResponse.status, 200);
+  assertSensitiveTokenResponseHeaders(firstResponse);
 
   const secondResponse = await fetchTokenEndpoint(
     {
@@ -364,6 +368,7 @@ test("POST token endpoint returns a signed jwt for jwt access token type", async
   );
 
   assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
   const tokenResponse = (await response.json()) as {
     access_token: string;
     token_type: string;
@@ -412,6 +417,7 @@ test("POST token endpoint includes scope in access tokens when present on auth c
   );
 
   assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
   const tokenResponse = (await response.json()) as {
     access_token: string;
   };
@@ -428,6 +434,116 @@ test("POST token endpoint includes scope in access tokens when present on auth c
 
   assert.equal(verified.payload.scope, "openid profile");
   assert.equal(tokenStore.size, 0);
+});
+
+test("POST token endpoint returns an ID token when scope includes openid token", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
+    "client-id-jwt",
+    "profile openid email",
+  );
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
+  );
+
+  assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
+  const tokenResponse = (await response.json()) as {
+    access_token: string;
+    id_token: string;
+    token_type: string;
+  };
+
+  assert.equal(tokenResponse.token_type, "Bearer");
+  assert.equal(typeof tokenResponse.id_token, "string");
+  assert.notEqual(tokenResponse.id_token.length, 0);
+
+  const verified = await jwtVerify(
+    tokenResponse.id_token,
+    defaultServerConfig.publicKey,
+    {
+      algorithms: ["RS256"],
+      issuer: defaultServerConfig.issuer,
+      audience: "client-id-jwt",
+    },
+  );
+
+  assert.equal(verified.protectedHeader.alg, "RS256");
+  assert.equal(verified.payload.iss, defaultServerConfig.issuer);
+  assert.equal(verified.payload.aud, "client-id-jwt");
+  assert.equal(verified.payload.sub, "test-user");
+  assert.equal(typeof verified.payload.jti, "string");
+  assert.notEqual(verified.payload.jti.length, 0);
+});
+
+test("POST token endpoint includes nonce in ID token when present on auth code", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
+    "client-id-jwt",
+    "profile openid email",
+    "nonce-value-123",
+  );
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
+  );
+
+  assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
+  const tokenResponse = (await response.json()) as {
+    id_token: string;
+  };
+
+  const verifiedIdToken = await jwtVerify(
+    tokenResponse.id_token,
+    defaultServerConfig.publicKey,
+    {
+      algorithms: ["RS256"],
+      issuer: defaultServerConfig.issuer,
+      audience: "client-id-jwt",
+    },
+  );
+
+  assert.equal(verifiedIdToken.payload.nonce, "nonce-value-123");
+});
+
+test("POST token endpoint does not return an ID token when scope only contains openid as a substring", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
+    "client-id-jwt",
+    "profile notopenid email",
+  );
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
+  );
+
+  assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
+  const tokenResponse = (await response.json()) as {
+    access_token: string;
+    id_token?: string;
+    token_type: string;
+  };
+
+  assert.equal(tokenResponse.token_type, "Bearer");
+  assert.equal(tokenResponse.id_token, undefined);
 });
 
 async function fetchTokenEndpoint(
@@ -485,11 +601,13 @@ function createAuthorizationCodeStoreWithCodeExpiresAt(expiresAt: number) {
 function createAuthorizationCodeStoreWithCodeForClient(
   clientId: string,
   scope?: string,
+  nonce?: string,
 ) {
   return createAuthorizationCodeStoreWithCodeExpiresAtForClient(
     Date.now() + 60_000,
     clientId,
     scope,
+    nonce,
   );
 }
 
@@ -497,6 +615,7 @@ function createAuthorizationCodeStoreWithCodeExpiresAtForClient(
   expiresAt: number,
   clientId: string,
   scope?: string,
+  nonce?: string,
 ) {
   const authorizationCodeStore = createAuthorizationCodeStore();
   authorizationCodeStore.set("test-auth-code", {
@@ -504,6 +623,7 @@ function createAuthorizationCodeStoreWithCodeExpiresAtForClient(
     subject: "test-user",
     redirectUri: "http://localhost:3000/callback",
     scope,
+    nonce,
     expiresAt,
   });
   return authorizationCodeStore;
@@ -537,6 +657,11 @@ function createBasicAuthHeader(clientId: string, clientSecret: string) {
     "base64",
   );
   return `Basic ${basicAuth}`;
+}
+
+function assertSensitiveTokenResponseHeaders(response: Response) {
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("pragma"), "no-cache");
 }
 
 function createS256CodeChallenge(codeVerifier: string) {
