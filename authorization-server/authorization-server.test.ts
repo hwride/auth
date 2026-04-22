@@ -140,6 +140,7 @@ test("authorization code can be issued and exchanged for a jwt access token veri
     });
 
     assert.equal(verified.protectedHeader.alg, "RS256");
+    assert.equal(verified.protectedHeader.typ, "at+jwt");
     assert.equal(verified.payload.iss, defaultServerConfig.issuer);
     assert.equal(verified.payload.aud, defaultServerConfig.issuer);
     assert.equal(verified.payload.sub, "test-user");
@@ -233,6 +234,7 @@ test("authorization code flow supports PKCE and state together", async function 
     });
 
     assert.equal(verified.protectedHeader.alg, "RS256");
+    assert.equal(verified.protectedHeader.typ, "at+jwt");
     assert.equal(verified.payload.iss, defaultServerConfig.issuer);
     assert.equal(verified.payload.aud, defaultServerConfig.issuer);
     assert.equal(verified.payload.sub, "test-user");
@@ -316,6 +318,7 @@ test("OIDC authorization code flow with nonce", async function () {
       },
     );
     assert.equal(verifiedAccessToken.protectedHeader.alg, "RS256");
+    assert.equal(verifiedAccessToken.protectedHeader.typ, "at+jwt");
     assert.equal(verifiedAccessToken.payload.iss, defaultServerConfig.issuer);
     assert.equal(verifiedAccessToken.payload.aud, defaultServerConfig.issuer);
     assert.equal(verifiedAccessToken.payload.sub, "test-user");
@@ -427,6 +430,7 @@ test("signup route creates a user who can then log in and receive a valid jwt ac
     });
 
     assert.equal(verified.protectedHeader.alg, "RS256");
+    assert.equal(verified.protectedHeader.typ, "at+jwt");
     assert.equal(verified.payload.iss, defaultServerConfig.issuer);
     assert.equal(verified.payload.aud, defaultServerConfig.issuer);
     assert.equal(verified.payload.sub, "new-user"); // Check sub matches our new user.
