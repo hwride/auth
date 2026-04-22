@@ -393,6 +393,7 @@ test("POST token endpoint returns a signed jwt for jwt access token type", async
     },
   );
   assert.equal(verified.protectedHeader.alg, "RS256");
+  assert.equal(verified.protectedHeader.typ, "at+jwt");
   assert.equal(verified.payload.iss, defaultServerConfig.issuer);
   assert.equal(verified.payload.aud, defaultServerConfig.issuer);
   assert.equal(verified.payload.sub, "test-user");

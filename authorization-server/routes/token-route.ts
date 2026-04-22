@@ -195,7 +195,7 @@ export function registerTokenRoute(
         payload.scope = authCodeRecord.scope;
       }
       response.access_token = await new SignJWT(payload)
-        .setProtectedHeader({ alg: serverConfig.jwtSigningAlg })
+        .setProtectedHeader({ alg: serverConfig.jwtSigningAlg, typ: "at+jwt" })
         .setIssuedAt()
         .setExpirationTime("1h")
         .sign(serverConfig.privateKey);
