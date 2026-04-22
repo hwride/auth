@@ -21,6 +21,7 @@ export function registerTokenRoute(
   authorizationCodeStore: AuthorizationCodeStore,
   tokenStore: TokenStore,
 ) {
+  const accessTokenLifetimeSeconds = 3600;
   const tokenEndpointPath = new URL(serverConfig.tokenEndpoint).pathname;
 
   fastify.post<{
@@ -138,10 +139,14 @@ export function registerTokenRoute(
 
     const response: {
       access_token: string;
+      expires_in: number;
       id_token?: string;
       token_type: "Bearer";
     } = {
       access_token: "",
+      // OAuth 2.0 Token Response: expires_in
+      // https://datatracker.ietf.org/doc/html/rfc6749#section-5.1
+      expires_in: accessTokenLifetimeSeconds,
       token_type: "Bearer",
     };
 
