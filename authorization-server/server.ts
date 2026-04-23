@@ -1,21 +1,21 @@
 import formbody from "@fastify/formbody";
 import Fastify from "fastify";
-import {
-  createAuthorizationCodeStore,
-  type AuthorizationCodeStore,
-} from "./authorization-code-store.ts";
 import { getServerConfig, type ServerConfig } from "./config/server-config.ts";
 import { registerAuthorizationRoute } from "./routes/authorization-route.ts";
 import { registerJwksRoute } from "./routes/jwks-route.ts";
 import { registerOpenIdConfigurationRoute } from "./routes/openid-configuration-route.ts";
 import { registerSignupRoute } from "./routes/signup-route.ts";
+import { registerTokenRoute } from "./routes/token-route.ts";
+import {
+  createAuthorizationCodeStore,
+  type AuthorizationCodeStore,
+} from "./stores/authorization-code-store.ts";
 import {
   createRefreshTokenStore,
   type RefreshTokenStore,
-} from "./refresh-token-store.ts";
-import { registerTokenRoute } from "./routes/token-route.ts";
-import { createTokenStore, type TokenStore } from "./token-store.ts";
-import { createUserStore, type UserStore } from "./user-store.ts";
+} from "./stores/refresh-token-store.ts";
+import { createTokenStore, type TokenStore } from "./stores/token-store.ts";
+import { createUserStore, type UserStore } from "./stores/user-store.ts";
 
 if (import.meta.main) {
   main();

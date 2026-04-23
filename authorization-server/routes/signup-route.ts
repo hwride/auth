@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { ServerConfig } from "../config/server-config.ts";
-import type { UserStore } from "../user-store.ts";
+import type { UserStore } from "../stores/user-store.ts";
 
 type SignupPageQueryParams = {
   client_id?: string;

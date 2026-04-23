@@ -5,15 +5,15 @@ import { jwtVerify } from "jose";
 import {
   createAuthorizationCodeStore,
   type AuthorizationCodeStore,
-} from "../authorization-code-store.ts";
+} from "../stores/authorization-code-store.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 import {
   createRefreshTokenStore,
   type RefreshTokenStore,
-} from "../refresh-token-store.ts";
+} from "../stores/refresh-token-store.ts";
 import { createServer } from "../server.ts";
 import { getTestServerConfig } from "../test/test-utils.ts";
-import { createTokenStore, type TokenStore } from "../token-store.ts";
+import { createTokenStore, type TokenStore } from "../stores/token-store.ts";
 
 const defaultServerConfig = getTestServerConfig();
 
