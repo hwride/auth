@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { createAuthorizationCodeStore } from "./authorization-code-store.ts";
+import { createAuthorizationCodeStore } from "./stores/authorization-code-store.ts";
 import { createServer } from "./server.ts";
 import { getTestServerConfig } from "./test/test-utils.ts";
-import { createTokenStore } from "./token-store.ts";
-import { createUserStore } from "./user-store.ts";
+import { createTokenStore } from "./stores/token-store.ts";
+import { createUserStore } from "./stores/user-store.ts";
 
 /*
   This test file is for testing more end to end flows of the authorization server.

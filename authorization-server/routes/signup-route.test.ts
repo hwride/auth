@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createAuthorizationCodeStore } from "../authorization-code-store.ts";
+import { createAuthorizationCodeStore } from "../stores/authorization-code-store.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 import { createServer } from "../server.ts";
 import { getTestServerConfig } from "../test/test-utils.ts";
-import { createUserStore } from "../user-store.ts";
+import { createUserStore } from "../stores/user-store.ts";
 
 const defaultServerConfig = getTestServerConfig();
 

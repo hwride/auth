@@ -1,11 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { type JWTPayload, SignJWT } from "jose";
-import type { AuthorizationCodeStore } from "../authorization-code-store.ts";
 import { type ClientConfig, clientsConfig } from "../config/clients-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
-import type { RefreshTokenStore } from "../refresh-token-store.ts";
-import type { AccessTokenRecord, TokenStore } from "../token-store.ts";
+import type { AuthorizationCodeStore } from "../stores/authorization-code-store.ts";
+import type { RefreshTokenStore } from "../stores/refresh-token-store.ts";
+import type { AccessTokenRecord, TokenStore } from "../stores/token-store.ts";
 
 type TokenRequestBody = {
   grant_type?: string;

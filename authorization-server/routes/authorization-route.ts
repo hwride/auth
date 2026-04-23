@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
-import type { AuthorizationCodeStore } from "../authorization-code-store.ts";
 import { clientsConfig, type ClientConfig } from "../config/clients-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
-import type { UserStore } from "../user-store.ts";
+import type { AuthorizationCodeStore } from "../stores/authorization-code-store.ts";
+import type { UserStore } from "../stores/user-store.ts";
 
 type AuthorizeQueryParams = {
   client_id?: string;
