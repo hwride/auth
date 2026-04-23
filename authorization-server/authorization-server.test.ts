@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import { createRemoteJWKSet, generateKeyPair, jwtVerify } from "jose";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import { createAuthorizationCodeStore } from "./authorization-code-store.ts";
-import type { ServerConfig } from "./config/server-config.ts";
 import { createServer } from "./server.ts";
+import { getTestServerConfig } from "./test/test-utils.ts";
 import { createTokenStore } from "./token-store.ts";
 import { createUserStore } from "./user-store.ts";
 
@@ -12,19 +12,7 @@ import { createUserStore } from "./user-store.ts";
   This test file is for testing more end to end flows of the authorization server.
  */
 
-const testSigningKeys = await generateKeyPair("RS256");
-
-const defaultServerConfig: ServerConfig = {
-  jwtSigningAlg: "RS256",
-  publicKey: testSigningKeys.publicKey,
-  privateKey: testSigningKeys.privateKey,
-  issuer: "https://issuer.example.test",
-  authorizationEndpoint: "https://issuer.example.test/authorize",
-  tokenEndpoint: "https://issuer.example.test/token",
-  jwksUri: "https://issuer.example.test/.well-known/jwks.json",
-  authorizationCodeLifetimeSeconds: 600,
-  refreshTokenLifetimeSeconds: 172800,
-};
+const defaultServerConfig = getTestServerConfig();
 
 test("authorization code can be issued and exchanged for an opaque access token", async function () {
   const authorizationCodeStore = createAuthorizationCodeStore();

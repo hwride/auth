@@ -1,27 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { generateKeyPair } from "jose";
 import {
   createAuthorizationCodeStore,
   type AuthorizationCodeStore,
 } from "../authorization-code-store.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 import { createServer } from "../server.ts";
+import { getTestServerConfig } from "../test/test-utils.ts";
 import { createUserStore, type UserStore } from "../user-store.ts";
 
-const testSigningKeys = await generateKeyPair("RS256");
-
-const defaultServerConfig: ServerConfig = {
-  jwtSigningAlg: "RS256",
-  publicKey: testSigningKeys.publicKey,
-  privateKey: testSigningKeys.privateKey,
-  issuer: "https://issuer.example.test",
-  authorizationEndpoint: "https://issuer.example.test/authorize",
-  tokenEndpoint: "https://issuer.example.test/token",
-  jwksUri: "https://issuer.example.test/.well-known/jwks.json",
-  authorizationCodeLifetimeSeconds: 600,
-  refreshTokenLifetimeSeconds: 172800,
-};
+const defaultServerConfig = getTestServerConfig();
 
 test("GET authorization endpoint renders a login form for a valid request", async function () {
   const authorizationCodeStore = createAuthorizationCodeStore();
@@ -197,11 +185,9 @@ test("POST authorization endpoint sets code expiry from configured lifetime", as
       response_type: "code",
       redirect_uri: "http://localhost:3000/callback",
     },
-    {
-      ...defaultServerConfig,
+    getTestServerConfig({
       authorizationCodeLifetimeSeconds: 2,
-      refreshTokenLifetimeSeconds: 172800,
-    },
+    }),
     authorizationCodeStore,
   );
 
@@ -385,10 +371,9 @@ test("GET authorization endpoint uses the configured endpoint path", async funct
       response_type: "code",
       redirect_uri: "http://localhost:3000/callback",
     },
-    {
-      ...defaultServerConfig,
+    getTestServerConfig({
       authorizationEndpoint: "https://login.example.test/oauth2/authorize",
-    },
+    }),
     authorizationCodeStore,
   );
 
