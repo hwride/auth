@@ -1,22 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { generateKeyPair } from "jose";
 import { createServer } from "../server.ts";
-
-const testSigningKeys = await generateKeyPair("RS256");
+import { getTestServerConfig } from "../test/test-utils.ts";
 
 test("GET /.well-known/jwks.json returns the signing JWK", async function () {
-  const fastify = await createServer({
-    jwtSigningAlg: "RS256",
-    publicKey: testSigningKeys.publicKey,
-    privateKey: testSigningKeys.privateKey,
-    issuer: "https://issuer.example.test",
-    authorizationEndpoint: "https://issuer.example.test/authorize",
-    tokenEndpoint: "https://issuer.example.test/token",
-    jwksUri: "https://issuer.example.test/.well-known/jwks.json",
-    authorizationCodeLifetimeSeconds: 600,
-    refreshTokenLifetimeSeconds: 172800,
-  });
+  const fastify = await createServer(getTestServerConfig());
 
   const address = await fastify.listen({
     host: "127.0.0.1",

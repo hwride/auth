@@ -1,23 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { generateKeyPair } from "jose";
 import type { ServerConfig } from "../config/server-config.ts";
 import { createServer } from "../server.ts";
-
-const testSigningKeys = await generateKeyPair("RS256");
+import { getTestServerConfig } from "../test/test-utils.ts";
 
 test("GET /.well-known/openid-configuration defaults endpoints from the issuer", async function () {
-  const response = await fetchOpenIdConfiguration({
-    jwtSigningAlg: "RS256",
-    publicKey: testSigningKeys.publicKey,
-    privateKey: testSigningKeys.privateKey,
-    issuer: "https://issuer.example.test",
-    authorizationEndpoint: "https://issuer.example.test/authorize",
-    tokenEndpoint: "https://issuer.example.test/token",
-    jwksUri: "https://issuer.example.test/.well-known/jwks.json",
-    authorizationCodeLifetimeSeconds: 600,
-    refreshTokenLifetimeSeconds: 172800,
-  });
+  const response = await fetchOpenIdConfiguration(getTestServerConfig());
 
   assert.equal(response.status, 200);
   assert.equal(
@@ -36,17 +24,13 @@ test("GET /.well-known/openid-configuration defaults endpoints from the issuer",
 });
 
 test("GET /.well-known/openid-configuration uses endpoint overrides when provided", async function () {
-  const response = await fetchOpenIdConfiguration({
-    jwtSigningAlg: "RS256",
-    publicKey: testSigningKeys.publicKey,
-    privateKey: testSigningKeys.privateKey,
-    issuer: "https://issuer.example.test",
-    authorizationEndpoint: "https://login.example.test/oauth2/authorize",
-    tokenEndpoint: "https://tokens.example.test/oauth2/token",
-    jwksUri: "https://keys.example.test/oauth2/jwks.json",
-    authorizationCodeLifetimeSeconds: 600,
-    refreshTokenLifetimeSeconds: 172800,
-  });
+  const response = await fetchOpenIdConfiguration(
+    getTestServerConfig({
+      authorizationEndpoint: "https://login.example.test/oauth2/authorize",
+      tokenEndpoint: "https://tokens.example.test/oauth2/token",
+      jwksUri: "https://keys.example.test/oauth2/jwks.json",
+    }),
+  );
 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), {

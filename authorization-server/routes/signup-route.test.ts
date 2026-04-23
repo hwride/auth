@@ -1,24 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { generateKeyPair } from "jose";
 import { createAuthorizationCodeStore } from "../authorization-code-store.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 import { createServer } from "../server.ts";
+import { getTestServerConfig } from "../test/test-utils.ts";
 import { createUserStore } from "../user-store.ts";
 
-const testSigningKeys = await generateKeyPair("RS256");
-
-const defaultServerConfig: ServerConfig = {
-  jwtSigningAlg: "RS256",
-  publicKey: testSigningKeys.publicKey,
-  privateKey: testSigningKeys.privateKey,
-  issuer: "https://issuer.example.test",
-  authorizationEndpoint: "https://issuer.example.test/authorize",
-  tokenEndpoint: "https://issuer.example.test/token",
-  jwksUri: "https://issuer.example.test/.well-known/jwks.json",
-  authorizationCodeLifetimeSeconds: 600,
-  refreshTokenLifetimeSeconds: 172800,
-};
+const defaultServerConfig = getTestServerConfig();
 
 test("GET signup route renders a signup form that preserves the authorization request", async function () {
   const response = await fetchSignupPage({
