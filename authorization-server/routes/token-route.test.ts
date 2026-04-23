@@ -7,6 +7,10 @@ import {
   type AuthorizationCodeStore,
 } from "../authorization-code-store.ts";
 import type { ServerConfig } from "../config/server-config.ts";
+import {
+  createRefreshTokenStore,
+  type RefreshTokenStore,
+} from "../refresh-token-store.ts";
 import { createServer } from "../server.ts";
 import { createTokenStore, type TokenStore } from "../token-store.ts";
 
@@ -21,13 +25,14 @@ const defaultServerConfig: ServerConfig = {
   tokenEndpoint: "https://issuer.example.test/token",
   jwksUri: "https://issuer.example.test/.well-known/jwks.json",
   authorizationCodeLifetimeSeconds: 600,
+  refreshTokenLifetimeSeconds: 172800,
 };
 
 test("POST token endpoint rejects unsupported grant_type", async function () {
   const authorizationCodeStore = createAuthorizationCodeStoreWithCode();
   const response = await fetchTokenEndpoint(
     {
-      grant_type: "refresh_token",
+      grant_type: "not_supported_grant",
       redirect_uri: "http://localhost:3000/callback",
     },
     defaultServerConfig,
@@ -561,17 +566,215 @@ test("POST token endpoint does not return an ID token when scope only contains o
   assert.equal(tokenResponse.id_token, undefined);
 });
 
+test("POST token endpoint includes refresh_token when scope includes offline_access", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
+    "client-id-opaque",
+    "openid offline_access email",
+    "nonce-value-123",
+    "state-value-123",
+  );
+  const refreshTokenStore = createRefreshTokenStore(172800);
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
+    createTokenStore(),
+    refreshTokenStore,
+  );
+
+  assert.equal(response.status, 200);
+  const tokenResponse = (await response.json()) as {
+    refresh_token: string;
+  };
+
+  assert.equal(typeof tokenResponse.refresh_token, "string");
+  assert.notEqual(tokenResponse.refresh_token.length, 0);
+
+  const refreshTokenRecord = refreshTokenStore.get(tokenResponse.refresh_token);
+  assert.notEqual(refreshTokenRecord, undefined);
+  assert.equal(refreshTokenRecord.clientId, "client-id-opaque");
+  assert.equal(refreshTokenRecord.scope, "openid offline_access email");
+  assert.equal(refreshTokenRecord.subject, "test-user");
+  assert.ok(
+    refreshTokenRecord.expiresAt >= Date.now() + 172_790_000 &&
+      refreshTokenRecord.expiresAt <= Date.now() + 172_810_000,
+  );
+});
+
+test("POST token endpoint does not include refresh_token when offline_access is not in scope", async function () {
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    createAuthorizationCodeStoreWithCodeForClient(
+      "client-id-opaque",
+      "openid email",
+    ),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
+  );
+
+  assert.equal(response.status, 200);
+  const tokenResponse = (await response.json()) as {
+    refresh_token?: string;
+  };
+
+  assert.equal(tokenResponse.refresh_token, undefined);
+});
+
+test("POST token endpoint rejects refresh token grant missing refresh_token", async function () {
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "refresh_token",
+    },
+    defaultServerConfig,
+    createAuthorizationCodeStore(),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: "invalid_request",
+    error_description: "Missing refresh_token",
+  });
+});
+
+test("POST token endpoint rejects unknown refresh token", async function () {
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "refresh_token",
+      refresh_token: "missing-refresh-token",
+    },
+    defaultServerConfig,
+    createAuthorizationCodeStore(),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: "invalid_grant",
+    error_description: "Invalid refresh_token",
+  });
+});
+
+test("POST token endpoint rejects expired refresh token and deletes it", async function () {
+  const refreshTokenStore = createRefreshTokenStore(-1);
+  const refreshToken = refreshTokenStore.generateNew({
+    clientId: "client-id-opaque",
+    subject: "test-user",
+  });
+
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    },
+    defaultServerConfig,
+    createAuthorizationCodeStore(),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
+    createTokenStore(),
+    refreshTokenStore,
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: "invalid_grant",
+    error_description: "Refresh token expired",
+  });
+  assert.equal(refreshTokenStore.hasToken(refreshToken), false);
+});
+
+test("POST token endpoint rejects refresh token issued to a different client", async function () {
+  const refreshTokenStore = createRefreshTokenStore(172800);
+  const refreshToken = refreshTokenStore.generateNew({
+    clientId: "client-id-jwt",
+    subject: "test-user",
+  });
+
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    },
+    defaultServerConfig,
+    createAuthorizationCodeStore(),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
+    createTokenStore(),
+    refreshTokenStore,
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: "invalid_grant",
+    error_description: "Invalid client",
+  });
+});
+
+test("POST token endpoint returns access token without rotating static refresh token", async function () {
+  const refreshTokenStore = createRefreshTokenStore(172800);
+  const refreshToken = refreshTokenStore.generateNew({
+    clientId: "client-id-opaque",
+    scope: "offline_access email",
+    subject: "test-user",
+  });
+  const tokenStore = createTokenStore();
+
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    },
+    defaultServerConfig,
+    createAuthorizationCodeStore(),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
+    tokenStore,
+    refreshTokenStore,
+  );
+
+  assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
+  const tokenResponse = (await response.json()) as {
+    access_token: string;
+    expires_in: number;
+    refresh_token?: string;
+    token_type: string;
+  };
+
+  assert.equal(tokenResponse.token_type, "Bearer");
+  assert.equal(tokenResponse.expires_in, 3600);
+  assert.equal(typeof tokenResponse.access_token, "string");
+  assert.notEqual(tokenResponse.access_token.length, 0);
+  assert.equal(tokenResponse.refresh_token, undefined);
+  assert.equal(refreshTokenStore.hasToken(refreshToken), true);
+  assert.deepEqual(tokenStore.get(tokenResponse.access_token), {
+    clientId: "client-id-opaque",
+    scope: "offline_access email",
+  });
+});
+
 async function fetchTokenEndpoint(
   queryParams: Record<string, string>,
   serverConfig: ServerConfig = defaultServerConfig,
   authorizationCodeStore: AuthorizationCodeStore = createAuthorizationCodeStore(),
   authorizationHeader?: string,
   tokenStore: TokenStore = createTokenStore(),
+  refreshTokenStore: RefreshTokenStore = createRefreshTokenStore(
+    serverConfig.refreshTokenLifetimeSeconds,
+  ),
 ) {
   const fastify = await createServer(
     serverConfig,
     authorizationCodeStore,
     tokenStore,
+    undefined,
+    refreshTokenStore,
   );
   const address = await fastify.listen({
     host: "127.0.0.1",
@@ -617,12 +820,14 @@ function createAuthorizationCodeStoreWithCodeForClient(
   clientId: string,
   scope?: string,
   nonce?: string,
+  state?: string,
 ) {
   return createAuthorizationCodeStoreWithCodeExpiresAtForClient(
     Date.now() + 60_000,
     clientId,
     scope,
     nonce,
+    state,
   );
 }
 
@@ -631,6 +836,7 @@ function createAuthorizationCodeStoreWithCodeExpiresAtForClient(
   clientId: string,
   scope?: string,
   nonce?: string,
+  state?: string,
 ) {
   const authorizationCodeStore = createAuthorizationCodeStore();
   authorizationCodeStore.set("test-auth-code", {

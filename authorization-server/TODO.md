@@ -1,9 +1,10 @@
 # To do
 Some potential things that could be added to this auth server.
 
-- [ ] Add `expires_in` to token response
+- [ ] Move all token expiry to server config.
 - [ ] RBAC
-- [ ] Refresh tokens
+- [ ] Support public clients - i.e. not client authentication.
+- [ ] Generate access tokens without a subject?
 - [ ] Refresh token rotation
 - [ ] Support key rotation
 - [ ] More OIDC checks https://openid.net/specs/openid-connect-core-1_0.html
@@ -11,6 +12,10 @@ Some potential things that could be added to this auth server.
 - [ ] Token introspection https://datatracker.ietf.org/doc/html/rfc7662
 - [ ] Token exchange https://datatracker.ietf.org/doc/html/rfc8693
 - [ ] Dynamic client registration https://datatracker.ietf.org/doc/html/rfc7591
+- [ ] Auth server session
+- [ ] Make auth server state be stored server side rather than shared by query params between sign in/sign up.
+- [x] Refresh tokens static 
+- [x] Add `expires_in` to token response
 - [x] `nonce`
 - [x] OIDC - ID token
 - [x] Scopes
@@ -18,8 +23,8 @@ Some potential things that could be added to this auth server.
 - [x] Allow sign up
 - [x] Allow multiple users
 - [x] User sign in
-- [x] OAuth authorization code flow basic
-- [x] Opaque access token
 - [x] JWT access token https://datatracker.ietf.org/doc/html/rfc9068
-- [x] Well known endpoint https://openid.net/specs/openid-connect-discovery-1_0.html
 - [x] `state`
+- [x] Opaque access token
+- [x] OAuth authorization code flow basic
+- [x] Well known endpoint https://openid.net/specs/openid-connect-discovery-1_0.html

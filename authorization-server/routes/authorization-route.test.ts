@@ -20,6 +20,7 @@ const defaultServerConfig: ServerConfig = {
   tokenEndpoint: "https://issuer.example.test/token",
   jwksUri: "https://issuer.example.test/.well-known/jwks.json",
   authorizationCodeLifetimeSeconds: 600,
+  refreshTokenLifetimeSeconds: 172800,
 };
 
 test("GET authorization endpoint renders a login form for a valid request", async function () {
@@ -199,6 +200,7 @@ test("POST authorization endpoint sets code expiry from configured lifetime", as
     {
       ...defaultServerConfig,
       authorizationCodeLifetimeSeconds: 2,
+      refreshTokenLifetimeSeconds: 172800,
     },
     authorizationCodeStore,
   );

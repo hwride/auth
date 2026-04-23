@@ -15,6 +15,7 @@ test("GET /.well-known/jwks.json returns the signing JWK", async function () {
     tokenEndpoint: "https://issuer.example.test/token",
     jwksUri: "https://issuer.example.test/.well-known/jwks.json",
     authorizationCodeLifetimeSeconds: 600,
+    refreshTokenLifetimeSeconds: 172800,
   });
 
   const address = await fastify.listen({
