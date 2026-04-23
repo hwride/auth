@@ -21,6 +21,7 @@ const defaultServerConfig: ServerConfig = {
   tokenEndpoint: "https://issuer.example.test/token",
   jwksUri: "https://issuer.example.test/.well-known/jwks.json",
   authorizationCodeLifetimeSeconds: 600,
+  refreshTokenLifetimeSeconds: 172800,
 };
 
 test("POST token endpoint rejects unsupported grant_type", async function () {
@@ -561,6 +562,56 @@ test("POST token endpoint does not return an ID token when scope only contains o
   assert.equal(tokenResponse.id_token, undefined);
 });
 
+test("POST token endpoint includes refresh_token when scope includes offline_access", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
+    "client-id-opaque",
+    "openid offline_access email",
+    "nonce-value-123",
+    "state-value-123",
+  );
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
+  );
+
+  assert.equal(response.status, 200);
+  const tokenResponse = (await response.json()) as {
+    refresh_token: string;
+  };
+
+  assert.equal(typeof tokenResponse.refresh_token, "string");
+  assert.notEqual(tokenResponse.refresh_token.length, 0);
+});
+
+test("POST token endpoint does not include refresh_token when offline_access is not in scope", async function () {
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    createAuthorizationCodeStoreWithCodeForClient(
+      "client-id-opaque",
+      "openid email",
+    ),
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
+  );
+
+  assert.equal(response.status, 200);
+  const tokenResponse = (await response.json()) as {
+    refresh_token?: string;
+  };
+
+  assert.equal(tokenResponse.refresh_token, undefined);
+});
+
 async function fetchTokenEndpoint(
   queryParams: Record<string, string>,
   serverConfig: ServerConfig = defaultServerConfig,
@@ -617,12 +668,14 @@ function createAuthorizationCodeStoreWithCodeForClient(
   clientId: string,
   scope?: string,
   nonce?: string,
+  state?: string,
 ) {
   return createAuthorizationCodeStoreWithCodeExpiresAtForClient(
     Date.now() + 60_000,
     clientId,
     scope,
     nonce,
+    state,
   );
 }
 
@@ -631,6 +684,7 @@ function createAuthorizationCodeStoreWithCodeExpiresAtForClient(
   clientId: string,
   scope?: string,
   nonce?: string,
+  state?: string,
 ) {
   const authorizationCodeStore = createAuthorizationCodeStore();
   authorizationCodeStore.set("test-auth-code", {

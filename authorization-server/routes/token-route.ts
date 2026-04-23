@@ -4,6 +4,7 @@ import { type JWTPayload, SignJWT } from "jose";
 import type { AuthorizationCodeStore } from "../authorization-code-store.ts";
 import { clientsConfig } from "../config/clients-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
+import type { RefreshTokenStore } from "../refresh-token-store.ts";
 import type { AccessTokenRecord, TokenStore } from "../token-store.ts";
 
 /**
@@ -20,6 +21,7 @@ export function registerTokenRoute(
   serverConfig: ServerConfig,
   authorizationCodeStore: AuthorizationCodeStore,
   tokenStore: TokenStore,
+  refreshTokenStore: RefreshTokenStore,
 ) {
   const accessTokenLifetimeSeconds = 3600;
   const tokenEndpointPath = new URL(serverConfig.tokenEndpoint).pathname;
@@ -142,6 +144,7 @@ export function registerTokenRoute(
       expires_in: number;
       id_token?: string;
       token_type: "Bearer";
+      refresh_token?: string;
     } = {
       access_token: "",
       // OAuth 2.0 Token Response: expires_in
@@ -166,6 +169,14 @@ export function registerTokenRoute(
         .setIssuedAt()
         .setExpirationTime("1h")
         .sign(serverConfig.privateKey);
+    }
+
+    if (hasScope(authCodeRecord.scope, "offline_access")) {
+      response.refresh_token = refreshTokenStore.generateNew({
+        clientId: authCodeRecord.clientId,
+        scope: authCodeRecord.scope,
+        subject: authCodeRecord.subject,
+      });
     }
 
     if (clientConfig.accessTokenType === "opaque") {
@@ -235,5 +246,9 @@ function parseBasicAuthorizationHeader(
 }
 
 function hasOpenIdScope(scope: string | undefined) {
-  return scope?.split(/\s+/).includes("openid") ?? false;
+  return hasScope(scope, "openid");
+}
+
+function hasScope(scope: string | undefined, expectedScope: string) {
+  return scope?.split(/\s+/).includes(expectedScope) ?? false;
 }

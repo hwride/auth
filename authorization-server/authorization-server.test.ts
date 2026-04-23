@@ -23,6 +23,7 @@ const defaultServerConfig: ServerConfig = {
   tokenEndpoint: "https://issuer.example.test/token",
   jwksUri: "https://issuer.example.test/.well-known/jwks.json",
   authorizationCodeLifetimeSeconds: 600,
+  refreshTokenLifetimeSeconds: 172800,
 };
 
 test("authorization code can be issued and exchanged for an opaque access token", async function () {
