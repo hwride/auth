@@ -357,6 +357,119 @@ test("OIDC authorization code flow with nonce", async function () {
   }
 });
 
+test("OIDC refresh token flow returns new access and ID tokens", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const tokenStore = createTokenStore();
+  const fastify = await createServer(
+    defaultServerConfig,
+    authorizationCodeStore,
+    tokenStore,
+  );
+  const address = await fastify.listen({
+    host: "127.0.0.1",
+    port: 0,
+  });
+
+  try {
+    const authorizationResponse = await authorizeClient(
+      address,
+      "client-id-jwt",
+      {
+        authorizationRequest: {
+          scope: "openid offline_access email",
+        },
+      },
+    );
+    assert.equal(authorizationResponse.status, 302);
+
+    const redirectUrl = getRedirectUrl(authorizationResponse);
+    const code = redirectUrl.searchParams.get("code");
+    assert.notEqual(code, null);
+
+    const tokenResponse = await fetchTokenEndpoint(
+      address,
+      code,
+      "client-id-jwt",
+      "other-test-client-secret",
+    );
+    assert.equal(tokenResponse.status, 200);
+
+    const tokenResponseBody = (await tokenResponse.json()) as {
+      access_token: string;
+      id_token: string;
+      refresh_token: string;
+      token_type: string;
+    };
+
+    assert.equal(tokenResponseBody.token_type, "Bearer");
+    assert.equal(typeof tokenResponseBody.access_token, "string");
+    assert.notEqual(tokenResponseBody.access_token.length, 0);
+    assert.equal(typeof tokenResponseBody.id_token, "string");
+    assert.notEqual(tokenResponseBody.id_token.length, 0);
+    assert.equal(typeof tokenResponseBody.refresh_token, "string");
+    assert.notEqual(tokenResponseBody.refresh_token.length, 0);
+
+    const jwks = createRemoteJWKSet(
+      new URL(`${address}${new URL(defaultServerConfig.jwksUri).pathname}`),
+    );
+    const verifiedInitialIdToken = await jwtVerify(
+      tokenResponseBody.id_token,
+      jwks,
+      {
+        algorithms: ["RS256"],
+        issuer: defaultServerConfig.issuer,
+        audience: "client-id-jwt",
+      },
+    );
+    assert.equal(typeof verifiedInitialIdToken.payload.iat, "number");
+
+    // Sleep long enough that iat will change for ID tokens.
+    await sleep(1100);
+
+    const refreshResponse = await fetchRefreshTokenEndpoint(
+      address,
+      tokenResponseBody.refresh_token,
+      "client-id-jwt",
+      "other-test-client-secret",
+    );
+    assert.equal(refreshResponse.status, 200);
+
+    const refreshResponseBody = (await refreshResponse.json()) as {
+      access_token: string;
+      id_token: string;
+      token_type: string;
+    };
+
+    assert.equal(refreshResponseBody.token_type, "Bearer");
+    assert.equal(typeof refreshResponseBody.access_token, "string");
+    assert.notEqual(refreshResponseBody.access_token.length, 0);
+    assert.notEqual(
+      refreshResponseBody.access_token,
+      tokenResponseBody.access_token,
+    );
+    assert.equal(typeof refreshResponseBody.id_token, "string");
+    assert.notEqual(refreshResponseBody.id_token.length, 0);
+
+    const verifiedRefreshIdToken = await jwtVerify(
+      refreshResponseBody.id_token,
+      jwks,
+      {
+        algorithms: ["RS256"],
+        issuer: defaultServerConfig.issuer,
+        audience: "client-id-jwt",
+      },
+    );
+
+    assert.equal(typeof verifiedRefreshIdToken.payload.iat, "number");
+    assert.ok(
+      verifiedRefreshIdToken.payload.iat > verifiedInitialIdToken.payload.iat,
+    );
+    assert.equal(tokenStore.size, 0);
+  } finally {
+    await fastify.close();
+  }
+});
+
 test("signup route creates a user who can then log in and receive a valid jwt access token", async function () {
   const authorizationCodeStore = createAuthorizationCodeStore();
   const tokenStore = createTokenStore();
@@ -531,6 +644,28 @@ async function fetchTokenEndpoint(
   });
 }
 
+async function fetchRefreshTokenEndpoint(
+  address: string,
+  refreshToken: string,
+  clientId: string,
+  clientSecret: string,
+) {
+  const tokenPath = new URL(defaultServerConfig.tokenEndpoint).pathname;
+  const requestBody = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+  }).toString();
+
+  return await fetch(`${address}${tokenPath}`, {
+    headers: {
+      authorization: createBasicAuthHeader(clientId, clientSecret),
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    method: "POST",
+    body: requestBody,
+  });
+}
+
 async function submitSignupForm(
   address: string,
   formData: Record<string, string>,
@@ -562,4 +697,10 @@ function createBasicAuthHeader(clientId: string, clientSecret: string) {
 
 function createS256CodeChallenge(codeVerifier: string) {
   return createHash("sha256").update(codeVerifier).digest("base64url");
+}
+
+async function sleep(ms: number) {
+  await new Promise(function (resolve) {
+    setTimeout(resolve, ms);
+  });
 }

@@ -16,6 +16,7 @@ export type RefreshTokenStore = {
   generateNew(record: CreateRefreshTokenRecordInput): string;
   hasToken(token: string): boolean;
   get(token: string): RefreshTokenRecord | undefined;
+  delete(token: string): boolean;
 };
 
 export function createRefreshTokenStore(
@@ -37,6 +38,9 @@ export function createRefreshTokenStore(
     },
     get(token) {
       return tokenStore.get(token);
+    },
+    delete(token) {
+      return tokenStore.delete(token);
     },
   };
 }
