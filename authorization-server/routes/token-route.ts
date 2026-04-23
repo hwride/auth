@@ -209,14 +209,14 @@ async function authCodeGrant({
     access_token,
     // OAuth 2.0 Token Response: expires_in
     // https://datatracker.ietf.org/doc/html/rfc6749#section-5.1
-    expires_in: serverConfig.accessTokenLifetimeSeconds,
+    expires_in: clientConfig.accessTokenLifetimeSeconds,
   };
 
   // OpenID Connect ID token
   if (hasOpenIdScope(authCodeRecord.scope)) {
     response.id_token = await generateIdToken({
       serverConfig,
-      clientId: authCodeRecord.clientId,
+      clientConfig,
       subject: authCodeRecord.subject,
       nonce: authCodeRecord.nonce,
     });
@@ -224,11 +224,14 @@ async function authCodeGrant({
 
   // Refresh token
   if (hasScope(authCodeRecord.scope, "offline_access")) {
-    response.refresh_token = refreshTokenStore.generateNew({
-      clientId: authCodeRecord.clientId,
-      scope: authCodeRecord.scope,
-      subject: authCodeRecord.subject,
-    });
+    response.refresh_token = refreshTokenStore.generateNew(
+      {
+        clientId: authCodeRecord.clientId,
+        scope: authCodeRecord.scope,
+        subject: authCodeRecord.subject,
+      },
+      clientConfig.refreshTokenLifetimeSeconds,
+    );
   }
 
   return (
@@ -303,7 +306,7 @@ async function refreshTokenGrant({
   const response: RefreshTokenGrantResponse = {
     token_type: "Bearer",
     access_token,
-    expires_in: serverConfig.accessTokenLifetimeSeconds,
+    expires_in: clientConfig.accessTokenLifetimeSeconds,
   };
 
   // OpenID Connect ID token
@@ -311,7 +314,7 @@ async function refreshTokenGrant({
   if (hasOpenIdScope(refreshRecord.scope)) {
     response.id_token = await generateIdToken({
       serverConfig,
-      clientId: refreshRecord.clientId,
+      clientConfig,
       subject: refreshRecord.subject,
       // no nonce on refresh requests
     });
@@ -392,7 +395,7 @@ async function generateAccessToken({
     return await new SignJWT(payload)
       .setProtectedHeader({ alg: serverConfig.jwtSigningAlg, typ: "at+jwt" })
       .setIssuedAt(nowSeconds)
-      .setExpirationTime(nowSeconds + serverConfig.accessTokenLifetimeSeconds)
+      .setExpirationTime(nowSeconds + clientConfig.accessTokenLifetimeSeconds)
       .sign(serverConfig.privateKey);
   }
 }
@@ -402,18 +405,18 @@ async function generateAccessToken({
  */
 async function generateIdToken({
   serverConfig,
-  clientId,
+  clientConfig,
   subject,
   nonce,
 }: {
   serverConfig: ServerConfig;
-  clientId: string;
+  clientConfig: ClientConfig;
   subject: string;
   nonce?: string;
 }) {
   const idTokenPayload: JWTPayload = {
     iss: serverConfig.issuer,
-    aud: clientId,
+    aud: clientConfig.clientId,
     sub: subject,
     jti: randomUUID(),
   };
@@ -424,7 +427,7 @@ async function generateIdToken({
   return await new SignJWT(idTokenPayload)
     .setProtectedHeader({ alg: serverConfig.jwtSigningAlg })
     .setIssuedAt(nowSeconds)
-    .setExpirationTime(nowSeconds + serverConfig.idTokenLifetimeSeconds)
+    .setExpirationTime(nowSeconds + clientConfig.idTokenLifetimeSeconds)
     .sign(serverConfig.privateKey);
 }
 

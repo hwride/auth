@@ -562,7 +562,7 @@ test("POST token endpoint includes refresh_token when scope includes offline_acc
     "nonce-value-123",
     "state-value-123",
   );
-  const refreshTokenStore = createRefreshTokenStore(172800);
+  const refreshTokenStore = createRefreshTokenStore();
   const response = await fetchTokenEndpoint(
     {
       grant_type: "authorization_code",
@@ -654,11 +654,14 @@ test("POST token endpoint rejects unknown refresh token", async function () {
 });
 
 test("POST token endpoint rejects expired refresh token and deletes it", async function () {
-  const refreshTokenStore = createRefreshTokenStore(-1);
-  const refreshToken = refreshTokenStore.generateNew({
-    clientId: "client-id-opaque",
-    subject: "test-user",
-  });
+  const refreshTokenStore = createRefreshTokenStore();
+  const refreshToken = refreshTokenStore.generateNew(
+    {
+      clientId: "client-id-opaque",
+      subject: "test-user",
+    },
+    -1,
+  );
 
   const response = await fetchTokenEndpoint(
     {
@@ -681,11 +684,14 @@ test("POST token endpoint rejects expired refresh token and deletes it", async f
 });
 
 test("POST token endpoint rejects refresh token issued to a different client", async function () {
-  const refreshTokenStore = createRefreshTokenStore(172800);
-  const refreshToken = refreshTokenStore.generateNew({
-    clientId: "client-id-jwt",
-    subject: "test-user",
-  });
+  const refreshTokenStore = createRefreshTokenStore();
+  const refreshToken = refreshTokenStore.generateNew(
+    {
+      clientId: "client-id-jwt",
+      subject: "test-user",
+    },
+    172800,
+  );
 
   const response = await fetchTokenEndpoint(
     {
@@ -707,12 +713,15 @@ test("POST token endpoint rejects refresh token issued to a different client", a
 });
 
 test("POST token endpoint returns access token without rotating static refresh token", async function () {
-  const refreshTokenStore = createRefreshTokenStore(172800);
-  const refreshToken = refreshTokenStore.generateNew({
-    clientId: "client-id-opaque",
-    scope: "offline_access email",
-    subject: "test-user",
-  });
+  const refreshTokenStore = createRefreshTokenStore();
+  const refreshToken = refreshTokenStore.generateNew(
+    {
+      clientId: "client-id-opaque",
+      scope: "offline_access email",
+      subject: "test-user",
+    },
+    172800,
+  );
   const tokenStore = createTokenStore();
 
   const response = await fetchTokenEndpoint(
@@ -754,9 +763,7 @@ async function fetchTokenEndpoint(
   authorizationCodeStore: AuthorizationCodeStore = createAuthorizationCodeStore(),
   authorizationHeader?: string,
   tokenStore: TokenStore = createTokenStore(),
-  refreshTokenStore: RefreshTokenStore = createRefreshTokenStore(
-    serverConfig.refreshTokenLifetimeSeconds,
-  ),
+  refreshTokenStore: RefreshTokenStore = createRefreshTokenStore(),
 ) {
   const fastify = await createServer(
     serverConfig,

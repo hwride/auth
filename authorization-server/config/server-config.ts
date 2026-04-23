@@ -10,9 +10,6 @@ export type ServerConfig = {
   tokenEndpoint: string;
   jwksUri: string;
   authorizationCodeLifetimeSeconds: number;
-  accessTokenLifetimeSeconds: number;
-  idTokenLifetimeSeconds: number;
-  refreshTokenLifetimeSeconds: number;
 };
 
 export async function getServerConfig(): Promise<ServerConfig> {
@@ -35,9 +32,6 @@ export async function getServerConfig(): Promise<ServerConfig> {
     tokenEndpoint: process.env.TOKEN_ENDPOINT ?? `${issuer}/token`,
     jwksUri: process.env.JWKS_URI ?? `${issuer}/.well-known/jwks.json`,
     authorizationCodeLifetimeSeconds: 60 * 10,
-    accessTokenLifetimeSeconds: 60 * 60,
-    idTokenLifetimeSeconds: 60 * 60,
-    refreshTokenLifetimeSeconds: 60 * 60 * 24 * 2,
   };
 }
 

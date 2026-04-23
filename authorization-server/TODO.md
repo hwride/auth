@@ -1,10 +1,9 @@
 # To do
 Some potential things that could be added to this auth server.
 
-- [ ] Move all token expiry to server config.
 - [ ] RBAC
-- [ ] Support public clients - i.e. not client authentication.
-- [ ] Generate access tokens without a subject?
+- [ ] Support client_credentials grant (incl access tokens without a subject)
+- [ ] Support public clients - i.e. without client authentication.
 - [ ] Refresh token rotation
 - [ ] Support key rotation
 - [ ] More OIDC checks https://openid.net/specs/openid-connect-core-1_0.html
@@ -14,6 +13,8 @@ Some potential things that could be added to this auth server.
 - [ ] Dynamic client registration https://datatracker.ietf.org/doc/html/rfc7591
 - [ ] Auth server session
 - [ ] Make auth server state be stored server side rather than shared by query params between sign in/sign up.
+- [x] Move some server config to be per client
+- [x] Move all token expiry to server config.
 - [x] Refresh tokens static 
 - [x] Add `expires_in` to token response
 - [x] `nonce`
