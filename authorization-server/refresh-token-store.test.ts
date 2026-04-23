@@ -3,13 +3,16 @@ import test from "node:test";
 import { createRefreshTokenStore } from "./refresh-token-store.ts";
 
 test("refresh token store generates a token and stores refresh token record with expiry", function () {
-  const refreshTokenStore = createRefreshTokenStore(172800);
+  const refreshTokenStore = createRefreshTokenStore();
 
-  const refreshToken = refreshTokenStore.generateNew({
-    clientId: "client-id-opaque",
-    scope: "openid offline_access email",
-    subject: "test-user",
-  });
+  const refreshToken = refreshTokenStore.generateNew(
+    {
+      clientId: "client-id-opaque",
+      scope: "openid offline_access email",
+      subject: "test-user",
+    },
+    172800,
+  );
 
   assert.equal(refreshTokenStore.hasToken(refreshToken), true);
 
@@ -25,17 +28,20 @@ test("refresh token store generates a token and stores refresh token record with
 });
 
 test("refresh token store hasToken returns false for unknown token", function () {
-  const refreshTokenStore = createRefreshTokenStore(172800);
+  const refreshTokenStore = createRefreshTokenStore();
 
   assert.equal(refreshTokenStore.hasToken("missing-token"), false);
 });
 
 test("refresh token store deletes stored tokens", function () {
-  const refreshTokenStore = createRefreshTokenStore(172800);
-  const refreshToken = refreshTokenStore.generateNew({
-    clientId: "client-id-opaque",
-    subject: "test-user",
-  });
+  const refreshTokenStore = createRefreshTokenStore();
+  const refreshToken = refreshTokenStore.generateNew(
+    {
+      clientId: "client-id-opaque",
+      subject: "test-user",
+    },
+    172800,
+  );
 
   assert.equal(refreshTokenStore.delete(refreshToken), true);
   assert.equal(refreshTokenStore.hasToken(refreshToken), false);

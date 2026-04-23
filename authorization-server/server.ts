@@ -9,7 +9,10 @@ import { registerAuthorizationRoute } from "./routes/authorization-route.ts";
 import { registerJwksRoute } from "./routes/jwks-route.ts";
 import { registerOpenIdConfigurationRoute } from "./routes/openid-configuration-route.ts";
 import { registerSignupRoute } from "./routes/signup-route.ts";
-import { createRefreshTokenStore, type RefreshTokenStore } from "./refresh-token-store.ts";
+import {
+  createRefreshTokenStore,
+  type RefreshTokenStore,
+} from "./refresh-token-store.ts";
 import { registerTokenRoute } from "./routes/token-route.ts";
 import { createTokenStore, type TokenStore } from "./token-store.ts";
 import { createUserStore, type UserStore } from "./user-store.ts";
@@ -39,8 +42,7 @@ export async function createServer(
 ) {
   const resolvedServerConfig = serverConfig ?? (await getServerConfig());
   const resolvedRefreshTokenStore =
-    refreshTokenStore ??
-    createRefreshTokenStore(resolvedServerConfig.refreshTokenLifetimeSeconds);
+    refreshTokenStore ?? createRefreshTokenStore();
   const fastify = Fastify({
     logger: {
       transport: {

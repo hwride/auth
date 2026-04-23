@@ -13,19 +13,20 @@ export type CreateRefreshTokenRecordInput = Omit<
 >;
 
 export type RefreshTokenStore = {
-  generateNew(record: CreateRefreshTokenRecordInput): string;
+  generateNew(
+    record: CreateRefreshTokenRecordInput,
+    refreshTokenLifetimeSeconds: number,
+  ): string;
   hasToken(token: string): boolean;
   get(token: string): RefreshTokenRecord | undefined;
   delete(token: string): boolean;
 };
 
-export function createRefreshTokenStore(
-  refreshTokenLifetimeSeconds: number,
-): RefreshTokenStore {
+export function createRefreshTokenStore(): RefreshTokenStore {
   const tokenStore = new Map<string, RefreshTokenRecord>();
 
   return {
-    generateNew(record) {
+    generateNew(record, refreshTokenLifetimeSeconds) {
       const refreshToken = randomUUID();
       tokenStore.set(refreshToken, {
         ...record,

@@ -13,9 +13,6 @@ const defaultServerConfig: ServerConfig = {
   tokenEndpoint: "https://issuer.example.test/token",
   jwksUri: "https://issuer.example.test/.well-known/jwks.json",
   authorizationCodeLifetimeSeconds: 60 * 10,
-  accessTokenLifetimeSeconds: 60 * 60,
-  idTokenLifetimeSeconds: 60 * 60,
-  refreshTokenLifetimeSeconds: 60 * 60 * 24 * 2,
 };
 
 export function getTestServerConfig(
