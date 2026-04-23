@@ -261,7 +261,7 @@ function createAuthorizationRedirectUrl(
   subject: string,
 ) {
   const code = randomUUID();
-  authorizationCodeStore.set(code, {
+  authorizationCodeStore.saveAuthorizationCode(code, {
     clientId: authorizationRequest.clientConfig.clientId,
     subject,
     redirectUri: authorizationRequest.redirectUri,

@@ -136,7 +136,9 @@ async function authCodeGrant({
   }
 
   // Check we have a record of the given auth code.
-  const authCodeRecord = authorizationCodeStore.get(body.code);
+  const authCodeRecord = authorizationCodeStore.loadAuthorizationCode(
+    body.code,
+  );
   if (authCodeRecord == null) {
     return reply.code(400).send({
       error: "invalid_grant",
@@ -145,7 +147,7 @@ async function authCodeGrant({
   }
 
   if (Date.now() > authCodeRecord.expiresAt) {
-    authorizationCodeStore.delete(body.code);
+    authorizationCodeStore.deleteAuthorizationCode(body.code);
     return reply.code(400).send({
       error: "invalid_grant",
       error_description: "Code expired",
@@ -194,7 +196,7 @@ async function authCodeGrant({
 
   // Validation passed.
   // Remove the authorization code so it can't be re-used.
-  authorizationCodeStore.delete(body.code);
+  authorizationCodeStore.deleteAuthorizationCode(body.code);
 
   const access_token = await generateAccessToken({
     serverConfig,
@@ -374,7 +376,7 @@ async function generateAccessToken({
     if (scope) {
       accessTokenRecord.scope = scope;
     }
-    tokenStore.set(accessToken, accessTokenRecord);
+    tokenStore.saveAccessToken(accessToken, accessTokenRecord);
     return accessToken;
   }
   // accessTokenType === "jwt"

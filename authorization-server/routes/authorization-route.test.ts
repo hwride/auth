@@ -29,7 +29,7 @@ test("GET authorization endpoint renders a login form for a valid request", asyn
     "text/html; charset=utf-8",
   );
   assert.match(await response.text(), /<form method="post"/);
-  assert.equal(authorizationCodeStore.size, 0);
+  assert.equal(authorizationCodeStore.isEmpty(), true);
 });
 
 test("POST authorization endpoint redirects with an authorization code after login", async function () {
@@ -52,7 +52,7 @@ test("POST authorization endpoint redirects with an authorization code after log
   assert.equal(redirectUrl.pathname, "/callback");
   assert.notEqual(code, null);
 
-  const codeRecord = authorizationCodeStore.get(code);
+  const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
   assert.deepEqual(
     {
       clientId: codeRecord.clientId,
@@ -108,7 +108,7 @@ test("POST authorization endpoint stores PKCE parameters with the authorization 
   const code = redirectUrl.searchParams.get("code");
   assert.notEqual(code, null);
 
-  const codeRecord = authorizationCodeStore.get(code);
+  const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
   assert.deepEqual(
     {
       clientId: codeRecord.clientId,
@@ -147,7 +147,7 @@ test("POST authorization endpoint stores scope with the authorization code", asy
   const code = redirectUrl.searchParams.get("code");
   assert.notEqual(code, null);
 
-  const codeRecord = authorizationCodeStore.get(code);
+  const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
   assert.equal(codeRecord.scope, "read:profile write:profile");
   assert.ok(codeRecord.expiresAt > Date.now());
 });
@@ -172,7 +172,7 @@ test("POST authorization endpoint stores nonce with the authorization code", asy
   const code = redirectUrl.searchParams.get("code");
   assert.notEqual(code, null);
 
-  const codeRecord = authorizationCodeStore.get(code);
+  const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
   assert.equal(codeRecord.nonce, "nonce-value-123");
   assert.ok(codeRecord.expiresAt > Date.now());
 });
@@ -197,7 +197,7 @@ test("POST authorization endpoint sets code expiry from configured lifetime", as
   const code = redirectUrl.searchParams.get("code");
   assert.notEqual(code, null);
 
-  const codeRecord = authorizationCodeStore.get(code);
+  const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
   assert.ok(codeRecord.expiresAt > Date.now());
   assert.ok(codeRecord.expiresAt <= Date.now() + 2_000);
 });
@@ -349,7 +349,7 @@ test("POST authorization endpoint rejects invalid login credentials", async func
     "text/html; charset=utf-8",
   );
   assert.match(await response.text(), /Invalid username or password/);
-  assert.equal(authorizationCodeStore.size, 0);
+  assert.equal(authorizationCodeStore.isEmpty(), true);
 });
 
 test("GET authorization endpoint includes a sign up link", async function () {
