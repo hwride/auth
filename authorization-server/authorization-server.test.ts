@@ -42,7 +42,7 @@ test("authorization code can be issued and exchanged for an opaque access token"
       `http://localhost:3000/callback?code=${code}`,
     );
     assert.notEqual(code, null);
-    assert.equal(authorizationCodeStore.has(code), true);
+    assert.equal(authorizationCodeStore.hasAuthorizationCode(code), true);
 
     const tokenResponse = await fetchTokenEndpoint(
       address,
@@ -62,11 +62,14 @@ test("authorization code can be issued and exchanged for an opaque access token"
     assert.notEqual(tokenResponseBody.access_token.length, 0);
 
     // Check auth code was removed.
-    assert.equal(authorizationCodeStore.has(code), false);
+    assert.equal(authorizationCodeStore.hasAuthorizationCode(code), false);
     // Check new access token is in the token store, for this client.
-    assert.deepEqual(tokenStore.get(tokenResponseBody.access_token), {
-      clientId: "client-id-opaque",
-    });
+    assert.deepEqual(
+      tokenStore.loadAccessToken(tokenResponseBody.access_token),
+      {
+        clientId: "client-id-opaque",
+      },
+    );
   } finally {
     await fastify.close();
   }
@@ -100,7 +103,7 @@ test("authorization code can be issued and exchanged for a jwt access token veri
       `http://localhost:3000/callback?code=${code}`,
     );
     assert.notEqual(code, null);
-    assert.equal(authorizationCodeStore.has(code), true);
+    assert.equal(authorizationCodeStore.hasAuthorizationCode(code), true);
 
     const tokenResponse = await fetchTokenEndpoint(
       address,
@@ -141,9 +144,9 @@ test("authorization code can be issued and exchanged for a jwt access token veri
     assert.ok(verified.payload.exp > verified.payload.iat);
 
     // Check auth code was removed.
-    assert.equal(authorizationCodeStore.has(code), false);
+    assert.equal(authorizationCodeStore.hasAuthorizationCode(code), false);
     // JWT access tokens are self-contained and are not stored server-side.
-    assert.equal(tokenStore.size, 0);
+    assert.equal(tokenStore.isEmpty(), true);
   } finally {
     await fastify.close();
   }
@@ -188,7 +191,7 @@ test("authorization code flow supports PKCE and state together", async function 
     assert.equal(redirectUrl.pathname, "/callback");
     assert.equal(redirectUrl.searchParams.get("state"), state);
 
-    const codeRecord = authorizationCodeStore.get(code);
+    const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
     assert.notEqual(codeRecord, undefined);
     assert.equal(codeRecord.codeChallenge, codeChallenge);
     assert.equal(codeRecord.codeChallengeMethod, "S256");
@@ -229,8 +232,8 @@ test("authorization code flow supports PKCE and state together", async function 
     assert.equal(verified.payload.sub, "test-user");
     assert.equal(verified.payload.client_id, "client-id-jwt");
 
-    assert.equal(authorizationCodeStore.has(code), false);
-    assert.equal(tokenStore.size, 0);
+    assert.equal(authorizationCodeStore.hasAuthorizationCode(code), false);
+    assert.equal(tokenStore.isEmpty(), true);
   } finally {
     await fastify.close();
   }
@@ -267,9 +270,9 @@ test("OIDC authorization code flow with nonce", async function () {
     const redirectUrl = getRedirectUrl(authorizationResponse);
     const code = redirectUrl.searchParams.get("code");
     assert.notEqual(code, null);
-    assert.equal(authorizationCodeStore.has(code), true);
+    assert.equal(authorizationCodeStore.hasAuthorizationCode(code), true);
 
-    const codeRecord = authorizationCodeStore.get(code);
+    const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
     assert.notEqual(codeRecord, undefined);
     assert.equal(codeRecord.scope, "openid");
     assert.equal(codeRecord.nonce, nonce);
@@ -338,8 +341,8 @@ test("OIDC authorization code flow with nonce", async function () {
     assert.equal(typeof verifiedIdToken.payload.exp, "number");
     assert.ok(verifiedIdToken.payload.exp > verifiedIdToken.payload.iat);
 
-    assert.equal(authorizationCodeStore.has(code), false);
-    assert.equal(tokenStore.size, 0);
+    assert.equal(authorizationCodeStore.hasAuthorizationCode(code), false);
+    assert.equal(tokenStore.isEmpty(), true);
   } finally {
     await fastify.close();
   }
@@ -452,7 +455,7 @@ test("OIDC refresh token flow returns new access and ID tokens", async function 
     assert.ok(
       verifiedRefreshIdToken.payload.iat > verifiedInitialIdToken.payload.iat,
     );
-    assert.equal(tokenStore.size, 0);
+    assert.equal(tokenStore.isEmpty(), true);
   } finally {
     await fastify.close();
   }
@@ -501,7 +504,7 @@ test("signup route creates a user who can then log in and receive a valid jwt ac
     const redirectUrl = getRedirectUrl(authorizationResponse);
     const code = redirectUrl.searchParams.get("code");
     assert.notEqual(code, null);
-    assert.equal(authorizationCodeStore.has(code), true);
+    assert.equal(authorizationCodeStore.hasAuthorizationCode(code), true);
 
     const tokenResponse = await fetchTokenEndpoint(
       address,
@@ -543,8 +546,8 @@ test("signup route creates a user who can then log in and receive a valid jwt ac
     assert.equal(typeof verified.payload.exp, "number");
     assert.ok(verified.payload.exp > verified.payload.iat);
 
-    assert.equal(authorizationCodeStore.has(code), false);
-    assert.equal(tokenStore.size, 0);
+    assert.equal(authorizationCodeStore.hasAuthorizationCode(code), false);
+    assert.equal(tokenStore.isEmpty(), true);
   } finally {
     await fastify.close();
   }

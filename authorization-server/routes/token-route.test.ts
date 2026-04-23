@@ -235,10 +235,13 @@ test("POST token endpoint returns an opaque access token for valid plain PKCE ex
   assert.equal(tokenResponse.expires_in, 3600);
   assert.equal(typeof tokenResponse.access_token, "string");
   assert.notEqual(tokenResponse.access_token.length, 0);
-  assert.deepEqual(tokenStore.get(tokenResponse.access_token), {
+  assert.deepEqual(tokenStore.loadAccessToken(tokenResponse.access_token), {
     clientId: "client-id-opaque",
   });
-  assert.equal(authorizationCodeStore.has("test-auth-code"), false);
+  assert.equal(
+    authorizationCodeStore.hasAuthorizationCode("test-auth-code"),
+    false,
+  );
 });
 
 test("POST token endpoint returns an opaque access token for valid S256 PKCE exchange", async function () {
@@ -274,10 +277,13 @@ test("POST token endpoint returns an opaque access token for valid S256 PKCE exc
   assert.equal(tokenResponse.expires_in, 3600);
   assert.equal(typeof tokenResponse.access_token, "string");
   assert.notEqual(tokenResponse.access_token.length, 0);
-  assert.deepEqual(tokenStore.get(tokenResponse.access_token), {
+  assert.deepEqual(tokenStore.loadAccessToken(tokenResponse.access_token), {
     clientId: "client-id-opaque",
   });
-  assert.equal(authorizationCodeStore.has("test-auth-code"), false);
+  assert.equal(
+    authorizationCodeStore.hasAuthorizationCode("test-auth-code"),
+    false,
+  );
 });
 
 test("POST token endpoint returns an opaque access token for valid code exchange", async function () {
@@ -308,10 +314,13 @@ test("POST token endpoint returns an opaque access token for valid code exchange
   assert.equal(tokenResponse.expires_in, 3600);
   assert.equal(typeof tokenResponse.access_token, "string");
   assert.notEqual(tokenResponse.access_token.length, 0);
-  assert.deepEqual(tokenStore.get(tokenResponse.access_token), {
+  assert.deepEqual(tokenStore.loadAccessToken(tokenResponse.access_token), {
     clientId: "client-id-opaque",
   });
-  assert.equal(authorizationCodeStore.has("test-auth-code"), false);
+  assert.equal(
+    authorizationCodeStore.hasAuthorizationCode("test-auth-code"),
+    false,
+  );
 });
 
 test("POST token endpoint makes authorization codes one-time use", async function () {
@@ -397,8 +406,11 @@ test("POST token endpoint returns a signed jwt for jwt access token type", async
   assert.equal(typeof verified.payload.iat, "number");
   assert.equal(typeof verified.payload.exp, "number");
   assert.ok(verified.payload.exp > verified.payload.iat);
-  assert.equal(authorizationCodeStore.has("test-auth-code"), false);
-  assert.equal(tokenStore.size, 0);
+  assert.equal(
+    authorizationCodeStore.hasAuthorizationCode("test-auth-code"),
+    false,
+  );
+  assert.equal(tokenStore.isEmpty(), true);
 });
 
 test("POST token endpoint includes scope in access tokens when present on auth code", async function () {
@@ -438,7 +450,7 @@ test("POST token endpoint includes scope in access tokens when present on auth c
   );
 
   assert.equal(verified.payload.scope, "openid profile");
-  assert.equal(tokenStore.size, 0);
+  assert.equal(tokenStore.isEmpty(), true);
 });
 
 test("POST token endpoint returns an ID token when scope includes openid token", async function () {
@@ -751,7 +763,7 @@ test("POST token endpoint returns access token without rotating static refresh t
   assert.notEqual(tokenResponse.access_token.length, 0);
   assert.equal(tokenResponse.refresh_token, undefined);
   assert.equal(refreshTokenStore.hasToken(refreshToken), true);
-  assert.deepEqual(tokenStore.get(tokenResponse.access_token), {
+  assert.deepEqual(tokenStore.loadAccessToken(tokenResponse.access_token), {
     clientId: "client-id-opaque",
     scope: "offline_access email",
   });
@@ -835,7 +847,7 @@ function createAuthorizationCodeStoreWithCodeExpiresAtForClient(
   state?: string,
 ) {
   const authorizationCodeStore = createAuthorizationCodeStore();
-  authorizationCodeStore.set("test-auth-code", {
+  authorizationCodeStore.saveAuthorizationCode("test-auth-code", {
     clientId,
     subject: "test-user",
     redirectUri: "http://localhost:3000/callback",
@@ -858,7 +870,7 @@ function createAuthorizationCodeStoreWithCodeAndPkce({
   clientId?: string;
 }) {
   const authorizationCodeStore = createAuthorizationCodeStore();
-  authorizationCodeStore.set("test-auth-code", {
+  authorizationCodeStore.saveAuthorizationCode("test-auth-code", {
     clientId,
     subject: "test-user",
     redirectUri: "http://localhost:3000/callback",
