@@ -7,8 +7,6 @@ import type { ServerConfig } from "../config/server-config.ts";
 import type { RefreshTokenStore } from "../refresh-token-store.ts";
 import type { AccessTokenRecord, TokenStore } from "../token-store.ts";
 
-const accessTokenLifetimeSeconds = 3600;
-
 type TokenRequestBody = {
   grant_type?: string;
   // Authorization code grant.
@@ -211,7 +209,7 @@ async function authCodeGrant({
     access_token,
     // OAuth 2.0 Token Response: expires_in
     // https://datatracker.ietf.org/doc/html/rfc6749#section-5.1
-    expires_in: accessTokenLifetimeSeconds,
+    expires_in: serverConfig.accessTokenLifetimeSeconds,
   };
 
   // OpenID Connect ID token
@@ -305,7 +303,7 @@ async function refreshTokenGrant({
   const response: RefreshTokenGrantResponse = {
     token_type: "Bearer",
     access_token,
-    expires_in: accessTokenLifetimeSeconds,
+    expires_in: serverConfig.accessTokenLifetimeSeconds,
   };
 
   // OpenID Connect ID token
@@ -390,10 +388,11 @@ async function generateAccessToken({
     if (scope) {
       payload.scope = scope;
     }
+    const nowSeconds = getNowSeconds();
     return await new SignJWT(payload)
       .setProtectedHeader({ alg: serverConfig.jwtSigningAlg, typ: "at+jwt" })
-      .setIssuedAt()
-      .setExpirationTime("1h")
+      .setIssuedAt(nowSeconds)
+      .setExpirationTime(nowSeconds + serverConfig.accessTokenLifetimeSeconds)
       .sign(serverConfig.privateKey);
   }
 }
@@ -421,11 +420,16 @@ async function generateIdToken({
   if (nonce) {
     idTokenPayload.nonce = nonce;
   }
+  const nowSeconds = getNowSeconds();
   return await new SignJWT(idTokenPayload)
     .setProtectedHeader({ alg: serverConfig.jwtSigningAlg })
-    .setIssuedAt()
-    .setExpirationTime("1h")
+    .setIssuedAt(nowSeconds)
+    .setExpirationTime(nowSeconds + serverConfig.idTokenLifetimeSeconds)
     .sign(serverConfig.privateKey);
+}
+
+function getNowSeconds() {
+  return Math.floor(Date.now() / 1000);
 }
 
 function hasOpenIdScope(scope: string | undefined) {
