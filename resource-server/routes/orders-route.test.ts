@@ -105,7 +105,7 @@ test("GET /orders returns 401 when token verification fails", async () => {
     assert.equal(response.statusCode, 401);
     assert.match(
       getHeader(response.headers, "www-authenticate"),
-      /Invalid access token/,
+      /ERR_JWS_INVALID/,
     );
   } finally {
     await resourceServer.close();
@@ -134,7 +134,7 @@ test("GET /orders returns 401 when issuer does not match", async () => {
     assert.equal(response.statusCode, 401);
     assert.match(
       getHeader(response.headers, "www-authenticate"),
-      /Invalid access token/,
+      /ERR_JWT_CLAIM_VALIDATION_FAILED/,
     );
   } finally {
     await resourceServer.close();
@@ -170,6 +170,7 @@ test("GET /orders rejects expired tokens", async () => {
 
 function createTestResourceServer(authServer: MockAuthServer) {
   return createServer({
+    acceptedAccessTokenAlgorithms: ["RS256"],
     authServerBase: authServer.authServerBase,
     issuer: authServer.issuer,
     jwksUri: authServer.jwksUri,

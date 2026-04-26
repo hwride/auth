@@ -1,4 +1,5 @@
 export type ResourceServerConfig = {
+  acceptedAccessTokenAlgorithms: string[];
   authServerBase: string;
   issuer: string;
   jwksUri: string;
@@ -36,6 +37,7 @@ export async function getResourceServerConfig(): Promise<ResourceServerConfig> {
   }
 
   return {
+    acceptedAccessTokenAlgorithms: ["RS256"],
     authServerBase,
     issuer: metadata.issuer,
     jwksUri: metadata.jwks_uri,
