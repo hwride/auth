@@ -3,8 +3,6 @@
 An OAuth Client. Mainly implemented for testing and learning. Not for use in production.
 
 ## Run
-1. From the repository root, change into this directory:
-- `cd client`
 
 1. Set required environment variables:
 - `AUTH_SERVER_BASE`
