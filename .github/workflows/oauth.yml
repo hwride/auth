@@ -17,7 +17,7 @@ jobs:
       - run: npm run types
         working-directory: ./client
 
-  authorization-server:
+  authorisation-server:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,11 +27,11 @@ jobs:
         with:
           node-version: 24.x
       - run: npm ci
-        working-directory: ./authorization-server
+        working-directory: ./authorisation-server
       - run: npm run types
-        working-directory: ./authorization-server
+        working-directory: ./authorisation-server
       - run: npm test
-        working-directory: ./authorization-server
+        working-directory: ./authorisation-server
 
   resource-server:
     runs-on: ubuntu-latest
