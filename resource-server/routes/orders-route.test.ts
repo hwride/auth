@@ -170,6 +170,7 @@ test("GET /orders rejects expired tokens", async () => {
 
 function createTestResourceServer(authServer: MockAuthServer) {
   return createServer({
+    acceptedAccessTokenAlgorithms: ["RS256"],
     authServerBase: authServer.authServerBase,
     issuer: authServer.issuer,
     jwksUri: authServer.jwksUri,

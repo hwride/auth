@@ -5,6 +5,7 @@ const jwksByUri = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 const bearerChallenge = `Bearer realm="resource-server"`;
 
 export type AccessTokenVerificationConfig = {
+  acceptedAccessTokenAlgorithms: string[];
   issuer: string;
   jwksUri: string;
 };
@@ -41,7 +42,7 @@ export async function authenticateAccessToken(
     }
 
     return { sub: payload.sub };
-  } catch {
+  } catch (e) {
     sendInvalidTokenResponse(reply, "Invalid access token");
     return undefined;
   }
@@ -91,6 +92,7 @@ async function verifyAccessToken(
 ): Promise<JWTPayload> {
   const jwks = getRemoteJwks(config.jwksUri);
   const { payload } = await jwtVerify(token, jwks, {
+    algorithms: config.acceptedAccessTokenAlgorithms,
     issuer: config.issuer,
   });
   return payload;

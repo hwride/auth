@@ -1,13 +1,16 @@
 import Fastify from "fastify";
 import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose";
 
-export async function createMockAuthServer(): Promise<MockAuthServer> {
+export async function createMockAuthServer(
+  options: MockAuthServerOptions = {},
+): Promise<MockAuthServer> {
   const kid = "test-key-id";
-  const keyPair = await generateKeyPair("RS256");
+  const signingAlg = options.signingAlg ?? "RS256";
+  const keyPair = await generateKeyPair(signingAlg);
   const publicJwk = (await exportJWK(keyPair.publicKey)) as JWK;
   publicJwk.kid = kid;
   publicJwk.use = "sig";
-  publicJwk.alg = "RS256";
+  publicJwk.alg = signingAlg;
 
   let issuer = "";
   const mockAuthServer = Fastify();
@@ -27,7 +30,7 @@ export async function createMockAuthServer(): Promise<MockAuthServer> {
       const now = Math.floor(Date.now() / 1000);
 
       return await new SignJWT({ sub: payload.sub })
-        .setProtectedHeader({ alg: "RS256", kid })
+        .setProtectedHeader({ alg: signingAlg, kid })
         .setIssuer(payload.iss ?? issuer)
         .setIssuedAt(now)
         .setNotBefore(payload.nbf ?? now - 5)
@@ -48,6 +51,10 @@ export type MockAuthServer = {
   issuer: string;
   jwksUri: string;
   close: () => Promise<void>;
+};
+
+type MockAuthServerOptions = {
+  signingAlg?: string;
 };
 
 type AccessTokenPayload = {

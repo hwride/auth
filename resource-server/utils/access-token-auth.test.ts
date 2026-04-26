@@ -5,6 +5,7 @@ import { createMockAuthServer } from "../test-utils/mock-auth-server.ts";
 import { authenticateAccessToken } from "./access-token-auth.ts";
 
 const verificationConfig = {
+  acceptedAccessTokenAlgorithms: ["RS256"],
   issuer: "https://issuer.example",
   jwksUri: "https://issuer.example/.well-known/jwks.json",
 };
@@ -76,6 +77,7 @@ test("authenticateAccessToken returns the token subject when bearer token is val
       createRequest(`Bearer ${token}`),
       response.fastifyReply,
       {
+        acceptedAccessTokenAlgorithms: ["RS256"],
         issuer: authServer.issuer,
         jwksUri: authServer.jwksUri,
       },
@@ -85,6 +87,37 @@ test("authenticateAccessToken returns the token subject when bearer token is val
     assert.equal(response.statusCode, undefined);
     assert.deepEqual(response.headers, {});
     assert.equal(response.body, undefined);
+  } finally {
+    await authServer.close();
+  }
+});
+
+test("authenticateAccessToken returns invalid_token when bearer token algorithm is not accepted", async () => {
+  const authServer = await createMockAuthServer({ signingAlg: "ES256" });
+  const response = createResponse();
+
+  try {
+    const token = await authServer.createAccessToken({
+      sub: "user-123",
+    });
+
+    const authenticatedUser = await authenticateAccessToken(
+      createRequest(`Bearer ${token}`),
+      response.fastifyReply,
+      {
+        acceptedAccessTokenAlgorithms: ["RS256"],
+        issuer: authServer.issuer,
+        jwksUri: authServer.jwksUri,
+      },
+    );
+
+    assert.equal(authenticatedUser, undefined);
+    assert.equal(response.statusCode, 401);
+    assert.equal(
+      response.headers["WWW-Authenticate"],
+      `Bearer realm="resource-server", error="invalid_token", error_description="Invalid access token"`,
+    );
+    assert.deepEqual(response.body, { error: "invalid_token" });
   } finally {
     await authServer.close();
   }
