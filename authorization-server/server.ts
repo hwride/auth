@@ -6,6 +6,7 @@ import { registerJwksRoute } from "./routes/jwks-route.ts";
 import { registerOpenIdConfigurationRoute } from "./routes/openid-configuration-route.ts";
 import { registerSignupRoute } from "./routes/signup-route.ts";
 import { registerTokenRoute } from "./routes/token-route.ts";
+import { registerUserinfoRoute } from "./routes/userinfo-route.ts";
 import {
   createAuthorizationCodeStore,
   type AuthorizationCodeStore,
@@ -72,8 +73,10 @@ export async function createServer(
     authorizationCodeStore,
     tokenStore,
     resolvedRefreshTokenStore,
+    userStore,
   );
   registerJwksRoute(fastify, resolvedServerConfig);
+  registerUserinfoRoute(fastify, resolvedServerConfig, userStore);
 
   return fastify;
 }

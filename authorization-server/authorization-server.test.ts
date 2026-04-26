@@ -260,7 +260,7 @@ test("OIDC authorization code flow with nonce", async function () {
       "client-id-jwt",
       {
         authorizationRequest: {
-          scope: "openid",
+          scope: "openid profile",
           nonce,
         },
       },
@@ -274,7 +274,7 @@ test("OIDC authorization code flow with nonce", async function () {
 
     const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
     assert.notEqual(codeRecord, undefined);
-    assert.equal(codeRecord.scope, "openid");
+    assert.equal(codeRecord.scope, "openid profile");
     assert.equal(codeRecord.nonce, nonce);
 
     const tokenResponse = await fetchTokenEndpoint(
@@ -315,7 +315,7 @@ test("OIDC authorization code flow with nonce", async function () {
     assert.equal(verifiedAccessToken.payload.aud, defaultServerConfig.issuer);
     assert.equal(verifiedAccessToken.payload.sub, "user");
     assert.equal(verifiedAccessToken.payload.client_id, "client-id-jwt");
-    assert.equal(verifiedAccessToken.payload.scope, "openid");
+    assert.equal(verifiedAccessToken.payload.scope, "openid profile");
     assert.equal(typeof verifiedAccessToken.payload.jti, "string");
     assert.notEqual(verifiedAccessToken.payload.jti.length, 0);
     assert.equal(typeof verifiedAccessToken.payload.iat, "number");
@@ -334,12 +334,23 @@ test("OIDC authorization code flow with nonce", async function () {
     assert.equal(verifiedIdToken.payload.iss, defaultServerConfig.issuer);
     assert.equal(verifiedIdToken.payload.aud, "client-id-jwt");
     assert.equal(verifiedIdToken.payload.sub, "user");
+    assert.equal(verifiedIdToken.payload.name, "John Smith");
     assert.equal(verifiedIdToken.payload.nonce, nonce);
     assert.equal(typeof verifiedIdToken.payload.jti, "string");
     assert.notEqual(verifiedIdToken.payload.jti.length, 0);
     assert.equal(typeof verifiedIdToken.payload.iat, "number");
     assert.equal(typeof verifiedIdToken.payload.exp, "number");
     assert.ok(verifiedIdToken.payload.exp > verifiedIdToken.payload.iat);
+
+    const userinfoResponse = await fetchUserinfoEndpoint(
+      address,
+      tokenResponseBody.access_token,
+    );
+    assert.equal(userinfoResponse.status, 200);
+    assert.deepEqual(await userinfoResponse.json(), {
+      sub: "user",
+      name: "John Smith",
+    });
 
     assert.equal(authorizationCodeStore.hasAuthorizationCode(code), false);
     assert.equal(tokenStore.isEmpty(), true);
@@ -482,11 +493,13 @@ test("signup route creates a user who can then log in and receive a valid jwt ac
       response_type: "code",
       redirect_uri: "http://localhost:3000/callback",
       username: "new-user",
+      name: "New User",
       password: "new-password",
     });
 
     assert.equal(signupResponse.status, 302);
     assert.equal(userStore.loadUser("new-user")?.password, "new-password");
+    assert.equal(userStore.loadUser("new-user")?.name, "New User");
 
     const authorizationResponse = await authorizeClient(
       address,
@@ -654,6 +667,14 @@ async function fetchRefreshTokenEndpoint(
     },
     method: "POST",
     body: requestBody,
+  });
+}
+
+async function fetchUserinfoEndpoint(address: string, accessToken: string) {
+  return await fetch(`${address}/userinfo`, {
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+    },
   });
 }
 
