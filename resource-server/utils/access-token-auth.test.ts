@@ -59,7 +59,7 @@ test("authenticateAccessToken returns invalid_token when bearer token verificati
   assert.equal(response.statusCode, 401);
   assert.equal(
     response.headers["WWW-Authenticate"],
-    `Bearer realm="resource-server", error="invalid_token", error_description="Invalid access token"`,
+    `Bearer realm="resource-server", error="invalid_token", error_description="ERR_JWS_INVALID"`,
   );
   assert.deepEqual(response.body, { error: "invalid_token" });
 });
@@ -115,7 +115,7 @@ test("authenticateAccessToken returns invalid_token when bearer token algorithm 
     assert.equal(response.statusCode, 401);
     assert.equal(
       response.headers["WWW-Authenticate"],
-      `Bearer realm="resource-server", error="invalid_token", error_description="Invalid access token"`,
+      `Bearer realm="resource-server", error="invalid_token", error_description="ERR_JOSE_ALG_NOT_ALLOWED"`,
     );
     assert.deepEqual(response.body, { error: "invalid_token" });
   } finally {
