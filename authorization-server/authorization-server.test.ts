@@ -135,7 +135,7 @@ test("authorization code can be issued and exchanged for a jwt access token veri
     assert.equal(verified.protectedHeader.typ, "at+jwt");
     assert.equal(verified.payload.iss, defaultServerConfig.issuer);
     assert.equal(verified.payload.aud, defaultServerConfig.issuer);
-    assert.equal(verified.payload.sub, "test-user");
+    assert.equal(verified.payload.sub, "user");
     assert.equal(verified.payload.client_id, "client-id-jwt");
     assert.equal(typeof verified.payload.jti, "string");
     assert.notEqual(verified.payload.jti.length, 0);
@@ -229,7 +229,7 @@ test("authorization code flow supports PKCE and state together", async function 
     assert.equal(verified.protectedHeader.typ, "at+jwt");
     assert.equal(verified.payload.iss, defaultServerConfig.issuer);
     assert.equal(verified.payload.aud, defaultServerConfig.issuer);
-    assert.equal(verified.payload.sub, "test-user");
+    assert.equal(verified.payload.sub, "user");
     assert.equal(verified.payload.client_id, "client-id-jwt");
 
     assert.equal(authorizationCodeStore.hasAuthorizationCode(code), false);
@@ -313,7 +313,7 @@ test("OIDC authorization code flow with nonce", async function () {
     assert.equal(verifiedAccessToken.protectedHeader.typ, "at+jwt");
     assert.equal(verifiedAccessToken.payload.iss, defaultServerConfig.issuer);
     assert.equal(verifiedAccessToken.payload.aud, defaultServerConfig.issuer);
-    assert.equal(verifiedAccessToken.payload.sub, "test-user");
+    assert.equal(verifiedAccessToken.payload.sub, "user");
     assert.equal(verifiedAccessToken.payload.client_id, "client-id-jwt");
     assert.equal(verifiedAccessToken.payload.scope, "openid");
     assert.equal(typeof verifiedAccessToken.payload.jti, "string");
@@ -333,7 +333,7 @@ test("OIDC authorization code flow with nonce", async function () {
     assert.equal(verifiedIdToken.protectedHeader.alg, "RS256");
     assert.equal(verifiedIdToken.payload.iss, defaultServerConfig.issuer);
     assert.equal(verifiedIdToken.payload.aud, "client-id-jwt");
-    assert.equal(verifiedIdToken.payload.sub, "test-user");
+    assert.equal(verifiedIdToken.payload.sub, "user");
     assert.equal(verifiedIdToken.payload.nonce, nonce);
     assert.equal(typeof verifiedIdToken.payload.jti, "string");
     assert.notEqual(verifiedIdToken.payload.jti.length, 0);
@@ -558,8 +558,8 @@ async function authorizeClient(
   clientId: string,
   {
     credentials = {
-      username: "test-user",
-      password: "test-password",
+      username: "user",
+      password: "password",
     },
     authorizationRequest = {},
   }: {
@@ -570,8 +570,8 @@ async function authorizeClient(
     authorizationRequest?: Record<string, string>;
   } = {
     credentials: {
-      username: "test-user",
-      password: "test-password",
+      username: "user",
+      password: "password",
     },
   },
 ) {

@@ -61,7 +61,7 @@ test("POST authorization endpoint redirects with an authorization code after log
     },
     {
       clientId: "client-id-opaque",
-      subject: "test-user",
+      subject: "user",
       redirectUri: "http://localhost:3000/callback",
     },
   );
@@ -119,7 +119,7 @@ test("POST authorization endpoint stores PKCE parameters with the authorization 
     },
     {
       clientId: "client-id-opaque",
-      subject: "test-user",
+      subject: "user",
       redirectUri: "http://localhost:3000/callback",
       codeChallenge: "challenge-value-123",
       codeChallengeMethod: "S256",
@@ -419,8 +419,8 @@ async function submitAuthorizationLogin(
     username: string;
     password: string;
   } = {
-    username: "test-user",
-    password: "test-password",
+    username: "user",
+    password: "password",
   },
   userStore: UserStore = createUserStore(),
 ) {

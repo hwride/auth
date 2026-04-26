@@ -9,5 +9,5 @@ An OAuth Authorization Server. Mainly implemented for testing and learning. Not 
 - `npm run dev`
 
 ## Test login
-- Username: `test-user`
-- Password: `test-password`
+- Username: `user`
+- Password: `password`
