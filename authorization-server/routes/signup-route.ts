@@ -11,6 +11,7 @@ type SignupPageQueryParams = {
   state?: string;
   code_challenge?: string;
   code_challenge_method?: string;
+  name?: string;
 };
 
 export function registerSignupRoute(
@@ -43,13 +44,15 @@ export function registerSignupRoute(
       code_challenge?: string;
       code_challenge_method?: string;
       username?: string;
+      name?: string;
       password?: string;
     };
   }>("/signup", async function (request, reply) {
     const username = request.body.username?.trim();
+    const name = request.body.name?.trim();
     const password = request.body.password;
 
-    if (!username || !password) {
+    if (!username || !name || !password) {
       return reply
         .code(400)
         .type("text/html; charset=utf-8")
@@ -57,7 +60,7 @@ export function registerSignupRoute(
           renderSignupPage({
             authorizationEndpointPath,
             signupQueryParams: request.body,
-            errorMessage: "Username and password are required",
+            errorMessage: "Username, name and password are required",
           }),
         );
     }
@@ -75,7 +78,7 @@ export function registerSignupRoute(
         );
     }
 
-    userStore.saveUser({ username, password });
+    userStore.saveUser({ username, password, name });
 
     const loginUrl = new URL(authorizationEndpointPath, "http://localhost");
     if (request.body.client_id) {
@@ -144,6 +147,10 @@ function renderSignupPage({
       <label>
         Username
         <input type="text" name="username" autocomplete="username" required>
+      </label>
+      <label>
+        Name
+        <input type="text" name="name" autocomplete="name" value="${escapeHtml(signupQueryParams.name ?? "")}" required>
       </label>
       <label>
         Password

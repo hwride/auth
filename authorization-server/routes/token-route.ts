@@ -6,6 +6,7 @@ import type { ServerConfig } from "../config/server-config.ts";
 import type { AuthorizationCodeStore } from "../stores/authorization-code-store.ts";
 import type { RefreshTokenStore } from "../stores/refresh-token-store.ts";
 import type { AccessTokenRecord, TokenStore } from "../stores/token-store.ts";
+import type { UserStore } from "../stores/user-store.ts";
 
 type TokenRequestBody = {
   grant_type?: string;
@@ -47,6 +48,7 @@ export function registerTokenRoute(
   authorizationCodeStore: AuthorizationCodeStore,
   tokenStore: TokenStore,
   refreshTokenStore: RefreshTokenStore,
+  userStore: UserStore,
 ) {
   const tokenEndpointPath = new URL(serverConfig.tokenEndpoint).pathname;
 
@@ -93,6 +95,7 @@ export function registerTokenRoute(
         authorizationCodeStore,
         tokenStore,
         refreshTokenStore,
+        userStore,
       });
     } else if (request.body.grant_type === "refresh_token") {
       return await refreshTokenGrant({
@@ -102,6 +105,7 @@ export function registerTokenRoute(
         clientConfig,
         tokenStore,
         refreshTokenStore,
+        userStore,
       });
     } else {
       return reply.code(400).send({
@@ -119,6 +123,7 @@ async function authCodeGrant({
   authorizationCodeStore,
   tokenStore,
   refreshTokenStore,
+  userStore,
 }: {
   body: TokenRequestBody;
   reply: FastifyReply;
@@ -127,6 +132,7 @@ async function authCodeGrant({
   authorizationCodeStore: AuthorizationCodeStore;
   tokenStore: TokenStore;
   refreshTokenStore: RefreshTokenStore;
+  userStore: UserStore;
 }) {
   if (!body.code) {
     return reply.code(400).send({
@@ -219,8 +225,10 @@ async function authCodeGrant({
     response.id_token = await generateIdToken({
       serverConfig,
       clientConfig,
+      scope: authCodeRecord.scope,
       subject: authCodeRecord.subject,
       nonce: authCodeRecord.nonce,
+      userStore,
     });
   }
 
@@ -253,6 +261,7 @@ async function refreshTokenGrant({
   clientConfig,
   tokenStore,
   refreshTokenStore,
+  userStore,
 }: {
   body: TokenRequestBody;
   reply: FastifyReply;
@@ -260,6 +269,7 @@ async function refreshTokenGrant({
   clientConfig: ClientConfig;
   tokenStore: TokenStore;
   refreshTokenStore: RefreshTokenStore;
+  userStore: UserStore;
 }) {
   if (!body.refresh_token) {
     return reply.code(400).send({
@@ -317,8 +327,10 @@ async function refreshTokenGrant({
     response.id_token = await generateIdToken({
       serverConfig,
       clientConfig,
+      scope: refreshRecord.scope,
       subject: refreshRecord.subject,
       // no nonce on refresh requests
+      userStore,
     });
   }
 
@@ -408,13 +420,17 @@ async function generateAccessToken({
 async function generateIdToken({
   serverConfig,
   clientConfig,
+  scope,
   subject,
   nonce,
+  userStore,
 }: {
   serverConfig: ServerConfig;
   clientConfig: ClientConfig;
+  scope?: string;
   subject: string;
   nonce?: string;
+  userStore: UserStore;
 }) {
   const idTokenPayload: JWTPayload = {
     iss: serverConfig.issuer,
@@ -425,6 +441,15 @@ async function generateIdToken({
   if (nonce) {
     idTokenPayload.nonce = nonce;
   }
+
+  // https://openid.net/specs/openid-connect-core-1_0.html#ScopeClaims
+  if (hasScope(scope, "profile")) {
+    const user = userStore.loadUser(subject);
+    if (user != null) {
+      idTokenPayload.name = user.name;
+    }
+  }
+
   const nowSeconds = getNowSeconds();
   return await new SignJWT(idTokenPayload)
     .setProtectedHeader({ alg: serverConfig.jwtSigningAlg })

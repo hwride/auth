@@ -1,6 +1,7 @@
 export type UserRecord = {
   username: string;
   password: string;
+  name: string;
 };
 
 export type UserStore = {
@@ -26,5 +27,8 @@ export function createUserStore(initialUsers: UserRecord[] = defaultUsers()) {
 }
 
 function defaultUsers() {
-  return [{ username: "user", password: "password" }];
+  return [
+    { username: "user", password: "password", name: "John Smith" },
+    { username: "jane", password: "password", name: "Jane Smith" },
+  ];
 }

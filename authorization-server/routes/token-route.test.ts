@@ -14,6 +14,7 @@ import {
 import { createServer } from "../server.ts";
 import { getTestServerConfig } from "../test/test-utils.ts";
 import { createTokenStore, type TokenStore } from "../stores/token-store.ts";
+import { createUserStore, type UserStore } from "../stores/user-store.ts";
 
 const defaultServerConfig = getTestServerConfig();
 
@@ -456,7 +457,7 @@ test("POST token endpoint includes scope in access tokens when present on auth c
 test("POST token endpoint returns an ID token when scope includes openid token", async function () {
   const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
     "client-id-jwt",
-    "profile openid email",
+    "openid",
   );
   const response = await fetchTokenEndpoint(
     {
@@ -497,8 +498,54 @@ test("POST token endpoint returns an ID token when scope includes openid token",
   assert.equal(verified.payload.iss, defaultServerConfig.issuer);
   assert.equal(verified.payload.aud, "client-id-jwt");
   assert.equal(verified.payload.sub, "test-user");
+  assert.equal(verified.payload.name, undefined);
   assert.equal(typeof verified.payload.jti, "string");
   assert.notEqual(verified.payload.jti.length, 0);
+});
+
+test("POST token endpoint includes name in ID token when scope includes profile", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
+    "client-id-jwt",
+    "openid profile",
+  );
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
+    createTokenStore(),
+    createRefreshTokenStore(),
+    createUserStore([
+      {
+        username: "test-user",
+        password: "test-password",
+        name: "Test User",
+      },
+    ]),
+  );
+
+  assert.equal(response.status, 200);
+  assertSensitiveTokenResponseHeaders(response);
+  const tokenResponse = (await response.json()) as {
+    id_token: string;
+  };
+
+  const verified = await jwtVerify(
+    tokenResponse.id_token,
+    defaultServerConfig.publicKey,
+    {
+      algorithms: ["RS256"],
+      issuer: defaultServerConfig.issuer,
+      audience: "client-id-jwt",
+    },
+  );
+
+  assert.equal(verified.payload.sub, "test-user");
+  assert.equal(verified.payload.name, "Test User");
 });
 
 test("POST token endpoint includes nonce in ID token when present on auth code", async function () {
@@ -776,12 +823,13 @@ async function fetchTokenEndpoint(
   authorizationHeader?: string,
   tokenStore: TokenStore = createTokenStore(),
   refreshTokenStore: RefreshTokenStore = createRefreshTokenStore(),
+  userStore: UserStore = createUserStore(),
 ) {
   const fastify = await createServer(
     serverConfig,
     authorizationCodeStore,
     tokenStore,
-    undefined,
+    userStore,
     refreshTokenStore,
   );
   const address = await fastify.listen({

@@ -8,6 +8,12 @@ test("createUserStore seeds the default user", function () {
   assert.deepEqual(userStore.loadUser("user"), {
     username: "user",
     password: "password",
+    name: "John Smith",
+  });
+  assert.deepEqual(userStore.loadUser("jane"), {
+    username: "jane",
+    password: "password",
+    name: "Jane Smith",
   });
 });
 
@@ -16,12 +22,14 @@ test("createUserStore uses provided initial users", function () {
     {
       username: "existing-user",
       password: "existing-password",
+      name: "Jane Smith",
     },
   ]);
 
   assert.deepEqual(userStore.loadUser("existing-user"), {
     username: "existing-user",
     password: "existing-password",
+    name: "Jane Smith",
   });
   assert.equal(userStore.loadUser("user"), undefined);
 });
@@ -32,14 +40,17 @@ test("saveUser stores and overwrites users by username", function () {
   userStore.saveUser({
     username: "new-user",
     password: "first-password",
+    name: "John Smith",
   });
   userStore.saveUser({
     username: "new-user",
     password: "updated-password",
+    name: "Jane Smith",
   });
 
   assert.deepEqual(userStore.loadUser("new-user"), {
     username: "new-user",
     password: "updated-password",
+    name: "Jane Smith",
   });
 });
