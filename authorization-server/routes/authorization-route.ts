@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { clientsConfig, type ClientConfig } from "../config/clients-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 import type { AuthorizationCodeStore } from "../stores/authorization-code-store.ts";
-import type { UserStore } from "../stores/user-store.ts";
+import type { UserRecord, UserStore } from "../stores/user-store.ts";
 
 type AuthorizeQueryParams = {
   client_id?: string;
@@ -55,9 +55,12 @@ export function registerAuthorizationRoute(
         .send(authorizationRequest.error);
     }
 
-    if (
-      !isValidLogin(userStore, request.body.username, request.body.password)
-    ) {
+    const user = authenticateUser(
+      userStore,
+      request.body.username,
+      request.body.password,
+    );
+    if (user == null) {
       return reply
         .code(401)
         .type("text/html; charset=utf-8")
@@ -75,7 +78,7 @@ export function registerAuthorizationRoute(
         serverConfig,
         authorizationCodeStore,
         authorizationRequest,
-        request.body.username as string,
+        user.userId,
       ),
     );
   });
@@ -241,17 +244,20 @@ function renderLoginPage(
 </html>`;
 }
 
-function isValidLogin(
+function authenticateUser(
   userStore: UserStore,
   username?: string,
   password?: string,
-) {
+): UserRecord | undefined {
   if (!username || !password) {
-    return false;
+    return undefined;
   }
 
-  const user = userStore.loadUser(username);
-  return user?.password === password;
+  const user = userStore.loadUserByUsername(username);
+  if (user?.password !== password) {
+    return undefined;
+  }
+  return user;
 }
 
 function createAuthorizationRedirectUrl(

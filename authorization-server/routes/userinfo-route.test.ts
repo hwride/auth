@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { generateKeyPair, SignJWT } from "jose";
 import type { ServerConfig } from "../config/server-config.ts";
+import { testUserId, janeUserId } from "../default-users.ts";
 import { createServer } from "../server.ts";
 import { getTestServerConfig } from "../test/test-utils.ts";
 
@@ -14,10 +15,7 @@ test("GET /userinfo returns a bearer challenge when authorization is missing", a
   const response = await fetchUserinfo();
 
   assert.equal(response.statusCode, 401);
-  assert.equal(
-    response.headers["www-authenticate"],
-    'Bearer realm="userinfo"',
-  );
+  assert.equal(response.headers["www-authenticate"], 'Bearer realm="userinfo"');
   assert.equal(response.body, "");
 });
 
@@ -62,7 +60,7 @@ test("GET /userinfo rejects access tokens without a subject", async function () 
 
 test("GET /userinfo rejects access tokens for unknown users", async function () {
   const accessToken = await signAccessToken({
-    subject: "missing-user",
+    subject: "missing-user-id",
   });
 
   const response = await fetchUserinfo(`Bearer ${accessToken}`);
@@ -77,7 +75,7 @@ test("GET /userinfo returns the subject for valid access tokens without profile 
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json(), {
-    sub: "user",
+    sub: testUserId,
   });
 });
 
@@ -90,7 +88,7 @@ test("GET /userinfo returns the subject and name for valid access tokens with pr
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json(), {
-    sub: "user",
+    sub: testUserId,
     name: "John Smith",
   });
 });
@@ -104,13 +102,13 @@ test("GET /userinfo does not return name when profile is only a substring", asyn
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json(), {
-    sub: "user",
+    sub: testUserId,
   });
 });
 
 test("GET /userinfo returns profile claims for the matching user", async function () {
   const accessToken = await signAccessToken({
-    subject: "jane",
+    subject: janeUserId,
     scope: "profile",
   });
 
@@ -118,7 +116,7 @@ test("GET /userinfo returns profile claims for the matching user", async functio
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json(), {
-    sub: "jane",
+    sub: janeUserId,
     name: "Jane Smith",
   });
 });
@@ -127,10 +125,7 @@ test("POST /userinfo returns a bearer challenge when authorization is missing", 
   const response = await fetchUserinfo(undefined, "POST");
 
   assert.equal(response.statusCode, 401);
-  assert.equal(
-    response.headers["www-authenticate"],
-    'Bearer realm="userinfo"',
-  );
+  assert.equal(response.headers["www-authenticate"], 'Bearer realm="userinfo"');
   assert.equal(response.body, "");
 });
 
@@ -143,7 +138,7 @@ test("POST /userinfo returns the subject and name for valid access tokens with p
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json(), {
-    sub: "user",
+    sub: testUserId,
     name: "John Smith",
   });
 });
@@ -174,7 +169,7 @@ async function fetchUserinfo(
 async function signAccessToken({
   serverConfig = defaultServerConfig,
   privateKey = serverConfig.privateKey,
-  subject = "user",
+  subject = testUserId,
   includeSubject = true,
   scope,
   tokenType = "at+jwt",

@@ -46,13 +46,13 @@ async function handleUserinfoRequest(
       return sendInvalidTokenResponse(reply);
     }
 
-    const user = userStore.loadUser(payload.sub);
+    const user = userStore.loadUserById(payload.sub);
     if (user == null) {
       return sendInvalidTokenResponse(reply);
     }
 
     const response: { sub: string; name?: string } = {
-      sub: user.username,
+      sub: user.userId,
     };
 
     // https://openid.net/specs/openid-connect-core-1_0.html#ScopeClaims

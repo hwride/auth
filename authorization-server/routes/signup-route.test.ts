@@ -5,6 +5,7 @@ import type { ServerConfig } from "../config/server-config.ts";
 import { createServer } from "../server.ts";
 import { getTestServerConfig } from "../test/test-utils.ts";
 import { createUserStore } from "../stores/user-store.ts";
+import { isUuidV4 } from "../utils/uuid.ts";
 
 const defaultServerConfig = getTestServerConfig();
 
@@ -82,6 +83,7 @@ test("POST signup route rejects duplicate usernames", async function () {
     },
     createUserStore([
       {
+        userId: "existing-user-id",
         username: "existing-user",
         password: "existing-password",
         name: "Jane Smith",
@@ -120,8 +122,11 @@ test("POST signup route creates a user and redirects back to the authorization e
   );
 
   assert.equal(response.status, 302);
-  assert.equal(userStore.loadUser("new-user")?.password, "new-password");
-  assert.equal(userStore.loadUser("new-user")?.name, "New User");
+  const newUser = userStore.loadUserByUsername("new-user");
+  assert.notEqual(newUser, undefined);
+  assert.equal(isUuidV4(newUser.userId), true);
+  assert.equal(newUser.password, "new-password");
+  assert.equal(newUser.name, "New User");
   assert.equal(
     response.headers.get("location"),
     "/authorize?client_id=client-id-opaque&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback&state=state-value-123&scope=openid+profile&nonce=nonce-value-123&code_challenge=challenge-value-123&code_challenge_method=S256",

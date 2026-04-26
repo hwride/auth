@@ -4,9 +4,11 @@ import test from "node:test";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { createAuthorizationCodeStore } from "./stores/authorization-code-store.ts";
 import { createServer } from "./server.ts";
+import { testUserId } from "./default-users.ts";
 import { getTestServerConfig } from "./test/test-utils.ts";
 import { createTokenStore } from "./stores/token-store.ts";
 import { createUserStore } from "./stores/user-store.ts";
+import { isUuidV4 } from "./utils/uuid.ts";
 
 /*
   This test file is for testing more end to end flows of the authorization server.
@@ -135,7 +137,7 @@ test("authorization code can be issued and exchanged for a jwt access token veri
     assert.equal(verified.protectedHeader.typ, "at+jwt");
     assert.equal(verified.payload.iss, defaultServerConfig.issuer);
     assert.equal(verified.payload.aud, defaultServerConfig.issuer);
-    assert.equal(verified.payload.sub, "user");
+    assert.equal(verified.payload.sub, testUserId);
     assert.equal(verified.payload.client_id, "client-id-jwt");
     assert.equal(typeof verified.payload.jti, "string");
     assert.notEqual(verified.payload.jti.length, 0);
@@ -229,7 +231,7 @@ test("authorization code flow supports PKCE and state together", async function 
     assert.equal(verified.protectedHeader.typ, "at+jwt");
     assert.equal(verified.payload.iss, defaultServerConfig.issuer);
     assert.equal(verified.payload.aud, defaultServerConfig.issuer);
-    assert.equal(verified.payload.sub, "user");
+    assert.equal(verified.payload.sub, testUserId);
     assert.equal(verified.payload.client_id, "client-id-jwt");
 
     assert.equal(authorizationCodeStore.hasAuthorizationCode(code), false);
@@ -313,7 +315,7 @@ test("OIDC authorization code flow with nonce", async function () {
     assert.equal(verifiedAccessToken.protectedHeader.typ, "at+jwt");
     assert.equal(verifiedAccessToken.payload.iss, defaultServerConfig.issuer);
     assert.equal(verifiedAccessToken.payload.aud, defaultServerConfig.issuer);
-    assert.equal(verifiedAccessToken.payload.sub, "user");
+    assert.equal(verifiedAccessToken.payload.sub, testUserId);
     assert.equal(verifiedAccessToken.payload.client_id, "client-id-jwt");
     assert.equal(verifiedAccessToken.payload.scope, "openid profile");
     assert.equal(typeof verifiedAccessToken.payload.jti, "string");
@@ -333,7 +335,7 @@ test("OIDC authorization code flow with nonce", async function () {
     assert.equal(verifiedIdToken.protectedHeader.alg, "RS256");
     assert.equal(verifiedIdToken.payload.iss, defaultServerConfig.issuer);
     assert.equal(verifiedIdToken.payload.aud, "client-id-jwt");
-    assert.equal(verifiedIdToken.payload.sub, "user");
+    assert.equal(verifiedIdToken.payload.sub, testUserId);
     assert.equal(verifiedIdToken.payload.name, "John Smith");
     assert.equal(verifiedIdToken.payload.nonce, nonce);
     assert.equal(typeof verifiedIdToken.payload.jti, "string");
@@ -348,7 +350,7 @@ test("OIDC authorization code flow with nonce", async function () {
     );
     assert.equal(userinfoResponse.status, 200);
     assert.deepEqual(await userinfoResponse.json(), {
-      sub: "user",
+      sub: testUserId,
       name: "John Smith",
     });
 
@@ -498,8 +500,11 @@ test("signup route creates a user who can then log in and receive a valid jwt ac
     });
 
     assert.equal(signupResponse.status, 302);
-    assert.equal(userStore.loadUser("new-user")?.password, "new-password");
-    assert.equal(userStore.loadUser("new-user")?.name, "New User");
+    const newUser = userStore.loadUserByUsername("new-user");
+    assert.notEqual(newUser, undefined);
+    assert.equal(isUuidV4(newUser.userId), true);
+    assert.equal(newUser.password, "new-password");
+    assert.equal(newUser.name, "New User");
 
     const authorizationResponse = await authorizeClient(
       address,
@@ -551,7 +556,8 @@ test("signup route creates a user who can then log in and receive a valid jwt ac
     assert.equal(verified.protectedHeader.typ, "at+jwt");
     assert.equal(verified.payload.iss, defaultServerConfig.issuer);
     assert.equal(verified.payload.aud, defaultServerConfig.issuer);
-    assert.equal(verified.payload.sub, "new-user"); // Check sub matches our new user.
+    assert.equal(verified.payload.sub, newUser.userId);
+    assert.notEqual(verified.payload.sub, newUser.username);
     assert.equal(verified.payload.client_id, "client-id-jwt");
     assert.equal(typeof verified.payload.jti, "string");
     assert.notEqual(verified.payload.jti.length, 0);
