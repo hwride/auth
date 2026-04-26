@@ -6,12 +6,6 @@ import type { JWTPayload } from "jose";
 type RefreshViewProps = {
   callbackTitle: "Refresh failed" | "Refresh success";
   errorMessage: string | undefined;
-  clientId: string | undefined;
-  authServerBaseUrl: string;
-  discoveryUrlUsed: string;
-  authorizationEndpointUsed: string;
-  tokenEndpointUsed: string;
-  jwksUrlUsed: string;
   tokenResponseJson: string | undefined;
   accessTokenJson: string | undefined;
   idTokenJson: string | undefined;
@@ -25,7 +19,7 @@ export function registerRefreshRoute(
   authFlowContext: AuthFlowContext,
 ) {
   fastify.post("/refresh", async function (_, reply) {
-    const refreshViewProps = getDefaultRefreshViewProps(authFlowContext);
+    const refreshViewProps = getDefaultRefreshViewProps();
 
     if (!authFlowContext.refreshToken) {
       return renderRefreshFailure(reply, 400, {
@@ -61,18 +55,10 @@ export function registerRefreshRoute(
   });
 }
 
-function getDefaultRefreshViewProps(
-  authFlowContext: AuthFlowContext,
-): RefreshViewProps {
+function getDefaultRefreshViewProps(): RefreshViewProps {
   return {
     callbackTitle: "Refresh failed",
     errorMessage: undefined,
-    clientId: process.env.CLIENT_ID,
-    authServerBaseUrl: authFlowContext.authServerBaseUrl,
-    discoveryUrlUsed: authFlowContext.discoveryUrl,
-    authorizationEndpointUsed: authFlowContext.authorizationEndpoint,
-    tokenEndpointUsed: authFlowContext.tokenEndpoint,
-    jwksUrlUsed: authFlowContext.jwksUri,
     tokenResponseJson: undefined,
     accessTokenJson: undefined,
     idTokenJson: undefined,
