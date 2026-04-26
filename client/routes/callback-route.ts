@@ -11,12 +11,6 @@ type CallbackQuery = {
 type CallbackViewProps = {
   callbackTitle: "Callback failed" | "Callback success";
   errorMessage: string | undefined;
-  clientId: string | undefined;
-  authServerBaseUrl: string;
-  discoveryUrlUsed: string;
-  authorizationEndpointUsed: string;
-  tokenEndpointUsed: string;
-  jwksUrlUsed: string;
   tokenResponseJson: string | undefined;
   accessTokenJson: string | undefined;
   idTokenJson: string | undefined;
@@ -35,7 +29,7 @@ export function registerCallbackRoute(
     Querystring: CallbackQuery;
   }>("/callback", async function (request, reply) {
     const query = request.query;
-    const callbackViewProps = getDefaultCallbackViewProps(authFlowContext);
+    const callbackViewProps = getDefaultCallbackViewProps();
 
     fastify.log.info({ query }, "/callback - Authorization Response");
 
@@ -76,18 +70,10 @@ export function registerCallbackRoute(
   });
 }
 
-function getDefaultCallbackViewProps(
-  authFlowContext: AuthFlowContext,
-): CallbackViewProps {
+function getDefaultCallbackViewProps(): CallbackViewProps {
   return {
     callbackTitle: "Callback failed",
     errorMessage: undefined,
-    clientId: process.env.CLIENT_ID,
-    authServerBaseUrl: authFlowContext.authServerBaseUrl,
-    discoveryUrlUsed: authFlowContext.discoveryUrl,
-    authorizationEndpointUsed: authFlowContext.authorizationEndpoint,
-    tokenEndpointUsed: authFlowContext.tokenEndpoint,
-    jwksUrlUsed: authFlowContext.jwksUri,
     tokenResponseJson: undefined,
     accessTokenJson: undefined,
     idTokenJson: undefined,
@@ -340,7 +326,9 @@ async function verifyIdToken(
 > {
   if (!authFlowContext.isOidcFlow) {
     if (typeof tokenResponseBody.id_token === "string") {
-      log.info("ID token returned for OAuth flow; skipping ID token validation");
+      log.info(
+        "ID token returned for OAuth flow; skipping ID token validation",
+      );
       return {
         ok: true,
         idTokenJson: JSON.stringify(
