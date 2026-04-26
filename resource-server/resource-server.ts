@@ -1,0 +1,44 @@
+import Fastify from "fastify";
+import {
+  getResourceServerConfig,
+  type ResourceServerConfig,
+} from "./config.ts";
+import { registerHomeRoute } from "./routes/home-route.ts";
+import { registerOrdersRoute } from "./routes/orders-route.ts";
+
+if (import.meta.main) {
+  main();
+}
+
+async function main() {
+  const serverConfig = await getResourceServerConfig();
+  const fastify = createServer(serverConfig);
+
+  try {
+    await fastify.listen({ port: 5000 });
+    fastify.log.info("Resource server is booted");
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+}
+
+export function createServer(serverConfig: ResourceServerConfig) {
+  const fastify = Fastify({
+    logger: {
+      transport: {
+        target: "pino-pretty",
+        options: {
+          translateTime: "HH:MM:ss Z",
+          ignore: "pid,hostname",
+        },
+      },
+    },
+    disableRequestLogging: true,
+  });
+
+  registerHomeRoute(fastify);
+  registerOrdersRoute(fastify, serverConfig);
+
+  return fastify;
+}
