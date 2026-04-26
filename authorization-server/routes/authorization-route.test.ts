@@ -5,6 +5,7 @@ import {
   type AuthorizationCodeStore,
 } from "../stores/authorization-code-store.ts";
 import type { ServerConfig } from "../config/server-config.ts";
+import { testUserId, defaultUsers } from "../default-users.ts";
 import { createServer } from "../server.ts";
 import { getTestServerConfig } from "../test/test-utils.ts";
 import { createUserStore, type UserStore } from "../stores/user-store.ts";
@@ -61,7 +62,7 @@ test("POST authorization endpoint redirects with an authorization code after log
     },
     {
       clientId: "client-id-opaque",
-      subject: "user",
+      subject: testUserId,
       redirectUri: "http://localhost:3000/callback",
     },
   );
@@ -119,7 +120,7 @@ test("POST authorization endpoint stores PKCE parameters with the authorization 
     },
     {
       clientId: "client-id-opaque",
-      subject: "user",
+      subject: testUserId,
       redirectUri: "http://localhost:3000/callback",
       codeChallenge: "challenge-value-123",
       codeChallengeMethod: "S256",
@@ -385,7 +386,7 @@ async function fetchAuthorizationLoginPage(
   queryParams: Record<string, string>,
   serverConfig: ServerConfig = defaultServerConfig,
   authorizationCodeStore: AuthorizationCodeStore = createAuthorizationCodeStore(),
-  userStore: UserStore = createUserStore(),
+  userStore: UserStore = createUserStore(defaultUsers()),
 ) {
   const fastify = await createServer(
     serverConfig,
@@ -422,7 +423,7 @@ async function submitAuthorizationLogin(
     username: "user",
     password: "password",
   },
-  userStore: UserStore = createUserStore(),
+  userStore: UserStore = createUserStore(defaultUsers()),
 ) {
   const fastify = await createServer(
     serverConfig,

@@ -400,7 +400,7 @@ test("POST token endpoint returns a signed jwt for jwt access token type", async
   assert.equal(verified.protectedHeader.typ, "at+jwt");
   assert.equal(verified.payload.iss, defaultServerConfig.issuer);
   assert.equal(verified.payload.aud, defaultServerConfig.issuer);
-  assert.equal(verified.payload.sub, "test-user");
+  assert.equal(verified.payload.sub, "test-user-id");
   assert.equal(verified.payload.client_id, "client-id-jwt");
   assert.equal(typeof verified.payload.jti, "string");
   assert.notEqual(verified.payload.jti.length, 0);
@@ -497,16 +497,29 @@ test("POST token endpoint returns an ID token when scope includes openid token",
   assert.equal(verified.protectedHeader.alg, "RS256");
   assert.equal(verified.payload.iss, defaultServerConfig.issuer);
   assert.equal(verified.payload.aud, "client-id-jwt");
-  assert.equal(verified.payload.sub, "test-user");
+  assert.equal(verified.payload.sub, "test-user-id");
   assert.equal(verified.payload.name, undefined);
   assert.equal(typeof verified.payload.jti, "string");
   assert.notEqual(verified.payload.jti.length, 0);
 });
 
 test("POST token endpoint includes name in ID token when scope includes profile", async function () {
+  const userStore = createUserStore([
+    {
+      userId: "test-user-id",
+      username: "test-user",
+      password: "test-password",
+      name: "Test User",
+    },
+  ]);
+  const testUser = userStore.loadUserByUsername("test-user");
+  assert.notEqual(testUser, undefined);
   const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
     "client-id-jwt",
     "openid profile",
+    undefined,
+    undefined,
+    testUser.userId,
   );
   const response = await fetchTokenEndpoint(
     {
@@ -519,13 +532,7 @@ test("POST token endpoint includes name in ID token when scope includes profile"
     createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
     createTokenStore(),
     createRefreshTokenStore(),
-    createUserStore([
-      {
-        username: "test-user",
-        password: "test-password",
-        name: "Test User",
-      },
-    ]),
+    userStore,
   );
 
   assert.equal(response.status, 200);
@@ -544,7 +551,7 @@ test("POST token endpoint includes name in ID token when scope includes profile"
     },
   );
 
-  assert.equal(verified.payload.sub, "test-user");
+  assert.equal(verified.payload.sub, testUser.userId);
   assert.equal(verified.payload.name, "Test User");
 });
 
@@ -647,7 +654,7 @@ test("POST token endpoint includes refresh_token when scope includes offline_acc
   assert.notEqual(refreshTokenRecord, undefined);
   assert.equal(refreshTokenRecord.clientId, "client-id-opaque");
   assert.equal(refreshTokenRecord.scope, "openid offline_access email");
-  assert.equal(refreshTokenRecord.subject, "test-user");
+  assert.equal(refreshTokenRecord.subject, "test-user-id");
   assert.ok(
     refreshTokenRecord.expiresAt >= Date.now() + 172_790_000 &&
       refreshTokenRecord.expiresAt <= Date.now() + 172_810_000,
@@ -717,7 +724,7 @@ test("POST token endpoint rejects expired refresh token and deletes it", async f
   const refreshToken = refreshTokenStore.generateNew(
     {
       clientId: "client-id-opaque",
-      subject: "test-user",
+      subject: "test-user-id",
     },
     -1,
   );
@@ -747,7 +754,7 @@ test("POST token endpoint rejects refresh token issued to a different client", a
   const refreshToken = refreshTokenStore.generateNew(
     {
       clientId: "client-id-jwt",
-      subject: "test-user",
+      subject: "test-user-id",
     },
     172800,
   );
@@ -777,7 +784,7 @@ test("POST token endpoint returns access token without rotating static refresh t
     {
       clientId: "client-id-opaque",
       scope: "offline_access email",
-      subject: "test-user",
+      subject: "test-user-id",
     },
     172800,
   );
@@ -877,6 +884,7 @@ function createAuthorizationCodeStoreWithCodeForClient(
   scope?: string,
   nonce?: string,
   state?: string,
+  subject = "test-user-id",
 ) {
   return createAuthorizationCodeStoreWithCodeExpiresAtForClient(
     Date.now() + 60_000,
@@ -884,6 +892,7 @@ function createAuthorizationCodeStoreWithCodeForClient(
     scope,
     nonce,
     state,
+    subject,
   );
 }
 
@@ -893,11 +902,12 @@ function createAuthorizationCodeStoreWithCodeExpiresAtForClient(
   scope?: string,
   nonce?: string,
   state?: string,
+  subject = "test-user-id",
 ) {
   const authorizationCodeStore = createAuthorizationCodeStore();
   authorizationCodeStore.saveAuthorizationCode("test-auth-code", {
     clientId,
-    subject: "test-user",
+    subject,
     redirectUri: "http://localhost:3000/callback",
     scope,
     nonce,
@@ -920,7 +930,7 @@ function createAuthorizationCodeStoreWithCodeAndPkce({
   const authorizationCodeStore = createAuthorizationCodeStore();
   authorizationCodeStore.saveAuthorizationCode("test-auth-code", {
     clientId,
-    subject: "test-user",
+    subject: "test-user-id",
     redirectUri: "http://localhost:3000/callback",
     expiresAt,
     codeChallenge,

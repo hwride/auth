@@ -444,7 +444,7 @@ async function generateIdToken({
 
   // https://openid.net/specs/openid-connect-core-1_0.html#ScopeClaims
   if (hasScope(scope, "profile")) {
-    const user = userStore.loadUser(subject);
+    const user = userStore.loadUserById(subject);
     if (user != null) {
       idTokenPayload.name = user.name;
     }

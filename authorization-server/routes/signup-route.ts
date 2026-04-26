@@ -65,7 +65,7 @@ export function registerSignupRoute(
         );
     }
 
-    if (userStore.loadUser(username)) {
+    if (userStore.loadUserByUsername(username)) {
       return reply
         .code(409)
         .type("text/html; charset=utf-8")
@@ -78,7 +78,7 @@ export function registerSignupRoute(
         );
     }
 
-    userStore.saveUser({ username, password, name });
+    userStore.createUser({ username, password, name });
 
     const loginUrl = new URL(authorizationEndpointPath, "http://localhost");
     if (request.body.client_id) {

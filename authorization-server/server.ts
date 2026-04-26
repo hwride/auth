@@ -1,6 +1,7 @@
 import formbody from "@fastify/formbody";
 import Fastify from "fastify";
 import { getServerConfig, type ServerConfig } from "./config/server-config.ts";
+import { defaultUsers } from "./default-users.ts";
 import { registerAuthorizationRoute } from "./routes/authorization-route.ts";
 import { registerJwksRoute } from "./routes/jwks-route.ts";
 import { registerOpenIdConfigurationRoute } from "./routes/openid-configuration-route.ts";
@@ -38,7 +39,7 @@ export async function createServer(
   serverConfig?: ServerConfig,
   authorizationCodeStore: AuthorizationCodeStore = createAuthorizationCodeStore(),
   tokenStore: TokenStore = createTokenStore(),
-  userStore: UserStore = createUserStore(),
+  userStore: UserStore = createUserStore(defaultUsers()),
   refreshTokenStore?: RefreshTokenStore,
 ) {
   const resolvedServerConfig = serverConfig ?? (await getServerConfig());
