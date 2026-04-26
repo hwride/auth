@@ -25,6 +25,39 @@
         gap: 0.35rem;
       }
 
+      #resource-request-form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: flex-start;
+      }
+
+      #resource-request-url-input {
+        width: min(100%, 36rem);
+      }
+
+      #resource-request-form label {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+
+      #resource-request-result:empty {
+        display: none;
+      }
+
+      .resource-request-success-title {
+        color: #0a7f28;
+      }
+
+      .resource-request-error-title {
+        color: #b00020;
+      }
+
+      .resource-request-used-url {
+        overflow-wrap: anywhere;
+      }
+
       .scopes-fieldset {
         display: flex;
         flex-wrap: wrap;
@@ -56,6 +89,12 @@
         max-width: 70ch;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
+      }
+
+      pre {
+        max-width: 100%;
+        overflow-x: auto;
+        box-sizing: border-box;
       }
     </style>
   </head>
@@ -238,6 +277,31 @@
       <a id="authorize-link" href="/authorize">Authorize</a>
     </div>
 
+    <h2>Resource server request</h2>
+    <form id="resource-request-form" method="post" action="/resource-request">
+      <label for="resource-request-url-input">URL</label>
+      <input
+        type="text"
+        id="resource-request-url-input"
+        name="resource_url"
+        value="http://localhost:5000/orders"
+      />
+      <label>
+        <input
+          type="checkbox"
+          id="use-invalid-access-token-checkbox"
+          name="use_invalid_access_token"
+          value="true"
+        />
+        Use invalid access token
+      </label>
+      <button type="submit" id="resource-request-submit-button">
+        Send request
+      </button>
+    </form>
+
+    <div id="resource-request-result"></div>
+
     <h2>Stored token state (in-memory)</h2>
     <table>
       <tbody>
@@ -316,6 +380,15 @@
       };
 
       const authorizeLink = document.getElementById("authorize-link");
+      const resourceRequest = {
+        form: document.getElementById("resource-request-form"),
+        result: document.getElementById("resource-request-result"),
+        submitButton: document.getElementById("resource-request-submit-button"),
+        useInvalidAccessTokenCheckbox: document.getElementById(
+          "use-invalid-access-token-checkbox",
+        ),
+        urlInput: document.getElementById("resource-request-url-input"),
+      };
 
       function syncOidcControls() {
         const oidcInputs = oidc.fieldset.querySelectorAll(
@@ -397,6 +470,94 @@
         authorizeLink.setAttribute("href", href);
       }
 
+      async function submitResourceRequest(event) {
+        event.preventDefault();
+
+        const requestBody = new URLSearchParams();
+        requestBody.set("resource_url", resourceRequest.urlInput.value);
+        if (resourceRequest.useInvalidAccessTokenCheckbox.checked) {
+          requestBody.set("use_invalid_access_token", "true");
+        }
+
+        resourceRequest.submitButton.disabled = true;
+        resourceRequest.result.textContent = "Loading...";
+
+        try {
+          const response = await fetch(resourceRequest.form.action, {
+            method: "POST",
+            headers: {
+              "content-type": "application/x-www-form-urlencoded",
+            },
+            body: requestBody.toString(),
+          });
+          const result = await response.json();
+          renderResourceRequestResult(result);
+        } catch (error) {
+          let errorMessage;
+          if (error instanceof Error) {
+            errorMessage = error.message;
+          }
+
+          renderResourceRequestResult({
+            ok: false,
+            requestUrl: resourceRequest.urlInput.value.trim(),
+            errorMessage,
+          });
+        } finally {
+          resourceRequest.submitButton.disabled = false;
+        }
+      }
+
+      function renderResourceRequestResult(result) {
+        resourceRequest.result.replaceChildren();
+
+        const title = document.createElement("h3");
+        if (result.ok) {
+          title.textContent = "Success";
+          title.className = "resource-request-success-title";
+        } else {
+          title.textContent = "Error";
+          title.className = "resource-request-error-title";
+        }
+        resourceRequest.result.append(title);
+
+        const requestUrl = document.createElement("p");
+        requestUrl.append("Request URL: ");
+        const requestUrlValue = document.createElement("code");
+        requestUrlValue.className = "resource-request-used-url";
+        requestUrlValue.textContent = result.requestUrl;
+        requestUrl.append(requestUrlValue);
+        resourceRequest.result.append(requestUrl);
+
+        if (result.errorMessage) {
+          const errorMessage = document.createElement("p");
+          errorMessage.textContent = result.errorMessage;
+          resourceRequest.result.append(errorMessage);
+        }
+
+        const responseBlockLines = [];
+        if (result.statusCode !== undefined) {
+          let statusLine = `${result.statusCode}`;
+          if (result.statusText) {
+            statusLine += ` ${result.statusText}`;
+          }
+          responseBlockLines.push(statusLine);
+        }
+        if (result.wwwAuthenticate) {
+          responseBlockLines.push(
+            `WWW-Authenticate: ${result.wwwAuthenticate}`,
+          );
+        }
+        if (result.responseBody) {
+          responseBlockLines.push("", result.responseBody);
+        }
+        if (responseBlockLines.length > 0) {
+          const responseBlock = document.createElement("pre");
+          responseBlock.textContent = responseBlockLines.join("\n");
+          resourceRequest.result.append(responseBlock);
+        }
+      }
+
       function addListeners(elements, eventName, listener) {
         elements.forEach((el) => el.addEventListener(eventName, listener));
       }
@@ -449,8 +610,13 @@
         );
       }
 
+      function bindResourceRequestListener() {
+        resourceRequest.form.addEventListener("submit", submitResourceRequest);
+      }
+
       bindOAuthListeners();
       bindOidcListeners();
+      bindResourceRequestListener();
 
       syncOidcControls();
       updateAuthorizeLink();
