@@ -15,10 +15,6 @@ type RefreshViewProps = {
   tokenResponseJson: string | undefined;
   accessTokenJson: string | undefined;
   idTokenJson: string | undefined;
-  accessToken: string | undefined;
-  idToken: string | undefined;
-  refreshToken: string | undefined;
-  hasRefreshToken: boolean;
 };
 
 const AUTH_TIME_CLOCK_TOLERANCE_SECONDS = 30;
@@ -80,10 +76,6 @@ function getDefaultRefreshViewProps(
     tokenResponseJson: undefined,
     accessTokenJson: undefined,
     idTokenJson: undefined,
-    accessToken: authFlowContext.accessToken,
-    idToken: authFlowContext.idToken,
-    refreshToken: authFlowContext.refreshToken,
-    hasRefreshToken: Boolean(authFlowContext.refreshToken),
   };
 }
 
@@ -223,10 +215,6 @@ async function handleRefreshTokenResponse(args: {
       tokenResponseJson: JSON.stringify(tokenResponseBody, null, 2),
       accessTokenJson,
       idTokenJson: idTokenResult.idTokenJson,
-      accessToken: args.authFlowContext.accessToken,
-      idToken: args.authFlowContext.idToken,
-      refreshToken: args.authFlowContext.refreshToken,
-      hasRefreshToken: Boolean(args.authFlowContext.refreshToken),
     },
   };
 }
