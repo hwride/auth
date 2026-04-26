@@ -26,5 +26,5 @@ export function createUserStore(initialUsers: UserRecord[] = defaultUsers()) {
 }
 
 function defaultUsers() {
-  return [{ username: "test-user", password: "test-password" }];
+  return [{ username: "user", password: "password" }];
 }

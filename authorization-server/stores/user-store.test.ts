@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createUserStore } from "./user-store.ts";
 
-test("createUserStore seeds the default test user", function () {
+test("createUserStore seeds the default user", function () {
   const userStore = createUserStore();
 
-  assert.deepEqual(userStore.loadUser("test-user"), {
-    username: "test-user",
-    password: "test-password",
+  assert.deepEqual(userStore.loadUser("user"), {
+    username: "user",
+    password: "password",
   });
 });
 
@@ -23,7 +23,7 @@ test("createUserStore uses provided initial users", function () {
     username: "existing-user",
     password: "existing-password",
   });
-  assert.equal(userStore.loadUser("test-user"), undefined);
+  assert.equal(userStore.loadUser("user"), undefined);
 });
 
 test("saveUser stores and overwrites users by username", function () {
