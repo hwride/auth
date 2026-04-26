@@ -32,3 +32,19 @@ jobs:
         working-directory: ./authorization-server
       - run: npm test
         working-directory: ./authorization-server
+
+  resource-server:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+      - run: npm ci
+        working-directory: ./resource-server
+      - run: npm run types
+        working-directory: ./resource-server
+      - run: npm test
+        working-directory: ./resource-server
