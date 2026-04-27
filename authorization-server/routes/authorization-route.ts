@@ -78,7 +78,7 @@ export function registerAuthorizationRoute(
         serverConfig,
         authorizationCodeStore,
         authorizationRequest,
-        user.userId,
+        user,
       ),
     );
   });
@@ -264,14 +264,14 @@ function createAuthorizationRedirectUrl(
   serverConfig: ServerConfig,
   authorizationCodeStore: AuthorizationCodeStore,
   authorizationRequest: AuthorizationRequest,
-  subject: string,
+  user: UserRecord,
 ) {
   const code = randomUUID();
   authorizationCodeStore.saveAuthorizationCode(code, {
     clientId: authorizationRequest.clientConfig.clientId,
-    subject,
+    subject: user.userId,
     redirectUri: authorizationRequest.redirectUri,
-    scope: authorizationRequest.scope,
+    scope: filterScopeByUserAllowedScopes(authorizationRequest.scope, user),
     nonce: authorizationRequest.nonce,
     expiresAt:
       Date.now() + serverConfig.authorizationCodeLifetimeSeconds * 1000,
@@ -285,6 +285,29 @@ function createAuthorizationRedirectUrl(
     redirectUrl.searchParams.set("state", authorizationRequest.state);
   }
   return redirectUrl.toString();
+}
+
+function filterScopeByUserAllowedScopes(
+  requestedScope: string | undefined,
+  user: UserRecord,
+): string | undefined {
+  if (!requestedScope) {
+    return requestedScope;
+  }
+
+  const requestedScopes = requestedScope
+    .split(/\s+/)
+    .filter((scope) => scope.length > 0);
+
+  const allowedScopes = new Set(user.allowedScopes ?? []);
+  const filteredScopes = requestedScopes.filter((scope) => {
+    if (scope !== "orders:read") {
+      return true;
+    }
+    return allowedScopes.has(scope);
+  });
+
+  return filteredScopes.length > 0 ? filteredScopes.join(" ") : undefined;
 }
 
 function escapeHtml(value: string) {

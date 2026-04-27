@@ -153,6 +153,34 @@ test("POST authorization endpoint stores scope with the authorization code", asy
   assert.ok(codeRecord.expiresAt > Date.now());
 });
 
+test("POST authorization endpoint strips orders:read scope for users that do not have it", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const response = await submitAuthorizationLogin(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      scope: "openid orders:read profile",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    {
+      username: "jane",
+      password: "password",
+    },
+  );
+
+  assert.equal(response.status, 302);
+
+  const redirectUrl = getRedirectUrl(response);
+  const code = redirectUrl.searchParams.get("code");
+  assert.notEqual(code, null);
+
+  const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
+  assert.equal(codeRecord.scope, "openid profile");
+  assert.ok(codeRecord.expiresAt > Date.now());
+});
+
 test("POST authorization endpoint stores nonce with the authorization code", async function () {
   const authorizationCodeStore = createAuthorizationCodeStore();
   const response = await submitAuthorizationLogin(

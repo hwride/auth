@@ -10,6 +10,7 @@ test("defaultUsers returns the seeded test users", function () {
       username: "user",
       password: "password",
       name: "John Smith",
+      allowedScopes: ["orders:read"],
     },
     {
       userId: janeUserId,
@@ -28,6 +29,8 @@ test("defaultUsers can seed a user store", function () {
 
   assert.notEqual(user, undefined);
   assert.notEqual(jane, undefined);
+  assert.deepEqual(user.allowedScopes, ["orders:read"]);
+  assert.equal(jane.allowedScopes, undefined);
   assert.equal(userStore.loadUserById(testUserId), user);
   assert.equal(userStore.loadUserById(janeUserId), jane);
 });
