@@ -11,12 +11,18 @@ export type ClientConfig = {
 const accessTokenLifetimeSeconds = 60 * 60;
 const idTokenLifetimeSeconds = 60 * 60;
 const refreshTokenLifetimeSeconds = 60 * 60 * 24 * 2;
+const defaultClientBase = "http://localhost:3000";
 
 export const clientsConfig: ClientConfig[] = [
   {
     clientId: "client-id-opaque",
     clientSecret: "test-client-secret",
-    redirectUris: ["http://localhost:3000/callback"],
+    redirectUris: [
+      new URL(
+        "/callback",
+        process.env.CLIENT_OPAQUE_BASE ?? defaultClientBase,
+      ).toString(),
+    ],
     accessTokenType: "opaque",
     accessTokenLifetimeSeconds,
     idTokenLifetimeSeconds,
@@ -25,7 +31,12 @@ export const clientsConfig: ClientConfig[] = [
   {
     clientId: "client-id-jwt",
     clientSecret: "other-test-client-secret",
-    redirectUris: ["http://localhost:3000/callback"],
+    redirectUris: [
+      new URL(
+        "/callback",
+        process.env.CLIENT_JWT_BASE ?? defaultClientBase,
+      ).toString(),
+    ],
     accessTokenType: "jwt",
     accessTokenLifetimeSeconds,
     idTokenLifetimeSeconds,

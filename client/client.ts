@@ -11,17 +11,32 @@ import { registerCallbackRoute } from "./routes/callback-route.ts";
 import { registerRefreshRoute } from "./routes/refresh-route.ts";
 import { authServerDiscovery } from "./utils/oidc-discovery.ts";
 
+export const defaultClientPort = 3000;
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-main();
-
-async function main() {
-  const fastify = await initServer();
-  fastify.log.info("Client is booted");
+if (import.meta.main) {
+  main();
 }
 
-async function initServer() {
+export async function main() {
+  const fastify = await createServer();
+
+  try {
+    await fastify.listen({
+      port: getClientPort(),
+    });
+    fastify.log.info("Client is booted");
+    return fastify;
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+}
+
+export async function createServer() {
+  const clientPort = getClientPort();
   const fastify = Fastify({
     logger: {
       transport: {
@@ -46,20 +61,18 @@ async function initServer() {
 
   const authFlowContext = await initAuthFlowContext({
     fastify,
-    redirectUri: "http://localhost:3000/callback",
+    redirectUri: `http://localhost:${clientPort}/callback`,
   });
   registerHomeRoute(fastify, authFlowContext);
   registerAuthorizeRoute(fastify, authFlowContext);
   registerCallbackRoute(fastify, authFlowContext);
   registerRefreshRoute(fastify, authFlowContext);
 
-  try {
-    await fastify.listen({ port: 3000 });
-    return fastify;
-  } catch (err) {
-    fastify.log.error(err);
-    process.exit(1);
-  }
+  return fastify;
+}
+
+function getClientPort() {
+  return Number(process.env.CLIENT_PORT ?? defaultClientPort);
 }
 
 async function initAuthFlowContext({
