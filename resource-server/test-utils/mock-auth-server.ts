@@ -29,7 +29,10 @@ export async function createMockAuthServer(
     createAccessToken: async (payload) => {
       const now = Math.floor(Date.now() / 1000);
 
-      return await new SignJWT({ sub: payload.sub })
+      return await new SignJWT({
+        sub: payload.sub,
+        scope: payload.scope,
+      })
         .setProtectedHeader({ alg: signingAlg, kid })
         .setIssuer(payload.iss ?? issuer)
         .setIssuedAt(now)
@@ -60,6 +63,7 @@ type MockAuthServerOptions = {
 type AccessTokenPayload = {
   iss?: string;
   sub?: string;
+  scope?: string;
   exp?: number;
   nbf?: number;
 };

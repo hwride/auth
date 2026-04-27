@@ -5,6 +5,7 @@ export type UserRecord = {
   username: string;
   password: string;
   name: string;
+  allowedScopes?: string[];
 };
 
 export type CreateUserInput = Omit<UserRecord, "userId">;

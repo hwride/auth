@@ -14,6 +14,7 @@ test("GET /orders returns orders with user ID from token subject", async () => {
   try {
     const token = await authServer.createAccessToken({
       sub: "user-123",
+      scope: "orders:read",
     });
 
     const response = await resourceServer.inject({
@@ -36,6 +37,36 @@ test("GET /orders returns orders with user ID from token subject", async () => {
     assert.equal(body.orders.length, 2);
     assert.equal(body.orders[0].userId, "user-123");
     assert.equal(body.orders[1].userId, "user-123");
+  } finally {
+    await resourceServer.close();
+    await authServer.close();
+  }
+});
+
+test("GET /orders returns 403 when the access token does not include orders:read scope", async () => {
+  const authServer = await createMockAuthServer();
+  const resourceServer = createTestResourceServer(authServer);
+
+  try {
+    const token = await authServer.createAccessToken({
+      sub: "user-123",
+      scope: "openid profile",
+    });
+
+    const response = await resourceServer.inject({
+      method: "GET",
+      url: "/orders",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    assert.equal(response.statusCode, 403);
+    assert.equal(
+      getHeader(response.headers, "www-authenticate"),
+      `Bearer realm="resource-server", error="insufficient_scope", scope="orders:read"`,
+    );
+    assert.deepEqual(response.json(), { error: "insufficient_scope" });
   } finally {
     await resourceServer.close();
     await authServer.close();

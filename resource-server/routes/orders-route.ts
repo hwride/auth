@@ -17,6 +17,17 @@ export function registerOrdersRoute(
     if (!authenticatedUser) {
       return;
     }
+    // https://www.rfc-editor.org/rfc/rfc6750.html#section-3.1
+    if (!hasScope(authenticatedUser.scope, "orders:read")) {
+      reply
+        .header(
+          "WWW-Authenticate",
+          'Bearer realm="resource-server", error="insufficient_scope", scope="orders:read"',
+        )
+        .status(403)
+        .send({ error: "insufficient_scope" });
+      return;
+    }
 
     return {
       orders: [
@@ -25,4 +36,8 @@ export function registerOrdersRoute(
       ],
     };
   });
+}
+
+function hasScope(scope: string | undefined, expectedScope: string) {
+  return scope?.split(/\s+/).includes(expectedScope) ?? false;
 }

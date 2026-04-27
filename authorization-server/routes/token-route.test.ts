@@ -414,7 +414,7 @@ test("POST token endpoint returns a signed jwt for jwt access token type", async
   assert.equal(tokenStore.isEmpty(), true);
 });
 
-test("POST token endpoint includes scope in access tokens when present on auth code", async function () {
+test("POST token endpoint includes scope in response and access token when present on auth code", async function () {
   const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
     "client-id-jwt",
     "openid profile",
@@ -437,9 +437,11 @@ test("POST token endpoint includes scope in access tokens when present on auth c
   const tokenResponse = (await response.json()) as {
     access_token: string;
     expires_in: number;
+    scope: string;
   };
 
   assert.equal(tokenResponse.expires_in, 3600);
+  assert.equal(tokenResponse.scope, "openid profile");
   const verified = await jwtVerify(
     tokenResponse.access_token,
     defaultServerConfig.publicKey,
@@ -808,11 +810,13 @@ test("POST token endpoint returns access token without rotating static refresh t
     access_token: string;
     expires_in: number;
     refresh_token?: string;
+    scope: string;
     token_type: string;
   };
 
   assert.equal(tokenResponse.token_type, "Bearer");
   assert.equal(tokenResponse.expires_in, 3600);
+  assert.equal(tokenResponse.scope, "offline_access email");
   assert.equal(typeof tokenResponse.access_token, "string");
   assert.notEqual(tokenResponse.access_token.length, 0);
   assert.equal(tokenResponse.refresh_token, undefined);

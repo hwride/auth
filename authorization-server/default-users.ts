@@ -10,6 +10,7 @@ export function defaultUsers(): UserRecord[] {
       username: "user",
       password: "password",
       name: "John Smith",
+      allowedScopes: ["orders:read"],
     },
     {
       userId: janeUserId,

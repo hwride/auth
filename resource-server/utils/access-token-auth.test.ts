@@ -83,7 +83,39 @@ test("authenticateAccessToken returns the token subject when bearer token is val
       },
     );
 
-    assert.deepEqual(authenticatedUser, { sub: "user-123" });
+    assert.deepEqual(authenticatedUser, { sub: "user-123", scope: undefined });
+    assert.equal(response.statusCode, undefined);
+    assert.deepEqual(response.headers, {});
+    assert.equal(response.body, undefined);
+  } finally {
+    await authServer.close();
+  }
+});
+
+test("authenticateAccessToken returns the token scope when bearer token scope is present", async () => {
+  const authServer = await createMockAuthServer();
+  const response = createResponse();
+
+  try {
+    const token = await authServer.createAccessToken({
+      sub: "user-123",
+      scope: "orders:read",
+    });
+
+    const authenticatedUser = await authenticateAccessToken(
+      createRequest(`Bearer ${token}`),
+      response.fastifyReply,
+      {
+        acceptedAccessTokenAlgorithms: ["RS256"],
+        issuer: authServer.issuer,
+        jwksUri: authServer.jwksUri,
+      },
+    );
+
+    assert.deepEqual(authenticatedUser, {
+      sub: "user-123",
+      scope: "orders:read",
+    });
     assert.equal(response.statusCode, undefined);
     assert.deepEqual(response.headers, {});
     assert.equal(response.body, undefined);
