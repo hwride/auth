@@ -19,16 +19,23 @@ import {
 import { createTokenStore, type TokenStore } from "./stores/token-store.ts";
 import { createUserStore, type UserStore } from "./stores/user-store.ts";
 
+export const defaultAuthorizationServerPort = 4000;
+
 if (import.meta.main) {
   main();
 }
 
-async function main() {
+export async function main() {
   const fastify = await createServer();
 
   try {
-    await fastify.listen({ port: 4000 });
+    await fastify.listen({
+      port: Number(
+        process.env.AUTH_SERVER_PORT ?? defaultAuthorizationServerPort,
+      ),
+    });
     fastify.log.info("Authorization server is booted");
+    return fastify;
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

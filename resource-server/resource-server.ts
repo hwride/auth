@@ -6,17 +6,24 @@ import {
 import { registerHomeRoute } from "./routes/home-route.ts";
 import { registerOrdersRoute } from "./routes/orders-route.ts";
 
+export const defaultResourceServerPort = 5000;
+
 if (import.meta.main) {
   main();
 }
 
-async function main() {
+export async function main() {
   const serverConfig = await getResourceServerConfig();
   const fastify = createServer(serverConfig);
 
   try {
-    await fastify.listen({ port: 5000 });
+    await fastify.listen({
+      port: Number(
+        process.env.RESOURCE_SERVER_PORT ?? defaultResourceServerPort,
+      ),
+    });
     fastify.log.info("Resource server is booted");
+    return fastify;
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
