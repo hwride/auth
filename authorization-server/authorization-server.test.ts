@@ -290,10 +290,12 @@ test("OIDC authorization code flow with nonce", async function () {
     const tokenResponseBody = (await tokenResponse.json()) as {
       access_token: string;
       id_token: string;
+      scope: string;
       token_type: string;
     };
 
     assert.equal(tokenResponseBody.token_type, "Bearer");
+    assert.equal(tokenResponseBody.scope, "openid profile");
     assert.equal(typeof tokenResponseBody.access_token, "string");
     assert.notEqual(tokenResponseBody.access_token.length, 0);
     assert.equal(typeof tokenResponseBody.id_token, "string");
@@ -402,10 +404,12 @@ test("OIDC refresh token flow returns new access and ID tokens", async function 
       access_token: string;
       id_token: string;
       refresh_token: string;
+      scope: string;
       token_type: string;
     };
 
     assert.equal(tokenResponseBody.token_type, "Bearer");
+    assert.equal(tokenResponseBody.scope, "openid offline_access email");
     assert.equal(typeof tokenResponseBody.access_token, "string");
     assert.notEqual(tokenResponseBody.access_token.length, 0);
     assert.equal(typeof tokenResponseBody.id_token, "string");
@@ -441,10 +445,12 @@ test("OIDC refresh token flow returns new access and ID tokens", async function 
     const refreshResponseBody = (await refreshResponse.json()) as {
       access_token: string;
       id_token: string;
+      scope: string;
       token_type: string;
     };
 
     assert.equal(refreshResponseBody.token_type, "Bearer");
+    assert.equal(refreshResponseBody.scope, "openid offline_access email");
     assert.equal(typeof refreshResponseBody.access_token, "string");
     assert.notEqual(refreshResponseBody.access_token.length, 0);
     assert.notEqual(

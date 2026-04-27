@@ -24,6 +24,7 @@ type AuthorizationCodeGrantResponse = {
   expires_in: number;
   id_token?: string;
   refresh_token?: string;
+  scope?: string;
 };
 
 type RefreshTokenGrantResponse = {
@@ -31,6 +32,7 @@ type RefreshTokenGrantResponse = {
   access_token: string;
   expires_in: number;
   id_token?: string;
+  scope?: string;
 };
 
 /**
@@ -219,6 +221,12 @@ async function authCodeGrant({
     // https://datatracker.ietf.org/doc/html/rfc6749#section-5.1
     expires_in: clientConfig.accessTokenLifetimeSeconds,
   };
+  // https://datatracker.ietf.org/doc/html/rfc6749#section-5.1
+  // Scope is required if different to requested, otherwise optional.
+  // Just always include will satisfy the spec.
+  if (authCodeRecord.scope) {
+    response.scope = authCodeRecord.scope;
+  }
 
   // OpenID Connect ID token
   if (hasOpenIdScope(authCodeRecord.scope)) {
@@ -320,6 +328,12 @@ async function refreshTokenGrant({
     access_token,
     expires_in: clientConfig.accessTokenLifetimeSeconds,
   };
+  // https://datatracker.ietf.org/doc/html/rfc6749#section-5.1
+  // Scope is required if different to requested, otherwise optional.
+  // Just always include will satisfy the spec.
+  if (refreshRecord.scope) {
+    response.scope = refreshRecord.scope;
+  }
 
   // OpenID Connect ID token
   // https://openid.net/specs/openid-connect-core-1_0.html#RefreshingAccessToken
