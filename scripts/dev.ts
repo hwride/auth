@@ -15,10 +15,8 @@ async function main() {
     process.env.AUTH_SERVER_PORT ?? defaultAuthorizationServerPort,
   );
   const authServerBase = `http://localhost:${authorizationServerPort}`;
-  process.env.CLIENT_JWT_BASE =
-    process.env.CLIENT_JWT_BASE ?? "http://localhost:3000";
-  process.env.CLIENT_OPAQUE_BASE =
-    process.env.CLIENT_OPAQUE_BASE ?? "http://localhost:3001";
+  process.env.CLIENT_JWT_BASE ??= "http://localhost:3000";
+  process.env.CLIENT_OPAQUE_BASE ??= "http://localhost:3001";
   process.env.AUTH_SERVER_PORT = String(authorizationServerPort);
   process.env.ISSUER = authServerBase;
 
@@ -36,9 +34,9 @@ async function main() {
   // Client
   const clientPort = Number(process.env.CLIENT_PORT ?? defaultClientPort);
   process.env.CLIENT_PORT = String(clientPort);
-  process.env.CLIENT_ID = process.env.CLIENT_ID ?? "client-id-jwt";
-  process.env.CLIENT_SECRET =
-    process.env.CLIENT_SECRET ?? "other-test-client-secret";
+  process.env.CLIENT_ID ??= "client-id-jwt";
+  process.env.CLIENT_SECRET ??= "other-test-client-secret";
+  process.env.DEFAULT_SCOPES ??= "openid orders:read";
 
   await startAuthorizationServer();
 
