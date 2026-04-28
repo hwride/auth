@@ -8,6 +8,7 @@ export function registerHomeRoute(
   fastify.get("/", async function (_, reply) {
     const defaultResource = process.env.DEFAULT_RESOURCE?.trim() ?? "";
     const defaultAudience = process.env.DEFAULT_AUDIENCE?.trim() ?? "";
+    const defaultScopes = process.env.DEFAULT_SCOPES?.trim() ?? "";
 
     return reply.view("index.ejs", {
       authServerBaseUrl: authFlowContext.authServerBaseUrl,
@@ -20,6 +21,7 @@ export function registerHomeRoute(
       useDefaultResource: !!defaultResource,
       defaultAudience,
       useDefaultAudience: !!defaultAudience,
+      defaultScopes,
       accessToken: authFlowContext.accessToken,
       idToken: authFlowContext.idToken,
       refreshToken: authFlowContext.refreshToken,

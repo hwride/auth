@@ -98,7 +98,7 @@
       }
     </style>
   </head>
-  <body>
+  <body data-default-scopes="<%= defaultScopes %>">
     <h1>OAuth Client</h1>
     <h2>Configuration</h2>
 
@@ -220,7 +220,6 @@
               value="openid"
               id="openid-scope-checkbox"
               class="scope-checkbox"
-              checked
             />
             openid
           </label>
@@ -418,6 +417,27 @@
         });
       }
 
+      function applyDefaultScopes() {
+        const defaultScopes = document.body.dataset.defaultScopes ?? "";
+        const defaultScopeNames = splitScopes(defaultScopes);
+        const defaultScopeSet = new Set(defaultScopeNames);
+        const scopeCheckboxes = [
+          ...oauth.scopeCheckboxes,
+          ...oidc.scopeCheckboxes,
+        ];
+
+        scopeCheckboxes.forEach((el) => {
+          el.checked = defaultScopeSet.has(el.value);
+        });
+
+        const checkboxScopeSet = new Set(scopeCheckboxes.map((el) => el.value));
+        const additionalScopes = defaultScopeNames.filter(
+          (scope) => !checkboxScopeSet.has(scope),
+        );
+        oauth.additionalScopesInput.value = additionalScopes.join(" ");
+        oauth.additionalScopesCheckbox.checked = additionalScopes.length > 0;
+      }
+
       function updateAuthorizeLink() {
         const queryParams = new URLSearchParams();
 
@@ -584,6 +604,17 @@
         elements.forEach((el) => el.addEventListener(eventName, listener));
       }
 
+      function splitScopes(scopes) {
+        return [
+          ...new Set(
+            scopes
+              .split(/\s+/)
+              .map((scope) => scope.trim())
+              .filter(Boolean),
+          ),
+        ];
+      }
+
       function bindOAuthListeners() {
         addListeners(
           [
@@ -645,6 +676,7 @@
       bindOidcListeners();
       bindResourceRequestListener();
 
+      applyDefaultScopes();
       syncOidcControls();
       updateAuthorizeLink();
     </script>
