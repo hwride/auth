@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
+import type { Role, Scope } from "../config/rbac-config.ts";
 
 export type UserRecord = {
   userId: string;
   username: string;
   password: string;
   name: string;
-  allowedScopes?: string[];
+  roles?: Role[];
+  allowedScopes?: Scope[];
 };
 
 export type CreateUserInput = Omit<UserRecord, "userId">;

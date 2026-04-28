@@ -207,6 +207,47 @@ test("POST authorization endpoint stores allowed admin resource scopes", async f
   assert.ok(codeRecord.expiresAt > Date.now());
 });
 
+test("POST authorization endpoint merges role scopes with user allowed scopes", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const roleUserId = "role-user-id";
+  const userStore = createUserStore([
+    {
+      userId: roleUserId,
+      username: "support-user",
+      password: "password",
+      name: "Support User",
+      roles: ["customer"],
+      allowedScopes: ["orders:read:any"],
+    },
+  ]);
+  const response = await submitAuthorizationLogin(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      scope: "orders:read orders:read:any payments:write",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    {
+      username: "support-user",
+      password: "password",
+    },
+    userStore,
+  );
+
+  assert.equal(response.status, 302);
+
+  const redirectUrl = getRedirectUrl(response);
+  const code = redirectUrl.searchParams.get("code");
+  assert.notEqual(code, null);
+
+  const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
+  assert.equal(codeRecord.subject, roleUserId);
+  assert.equal(codeRecord.scope, "orders:read orders:read:any");
+  assert.ok(codeRecord.expiresAt > Date.now());
+});
+
 test("POST authorization endpoint strips restricted and unknown scopes for users that do not have them", async function () {
   const authorizationCodeStore = createAuthorizationCodeStore();
   const response = await submitAuthorizationLogin(

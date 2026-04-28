@@ -11,14 +11,14 @@ export function defaultUsers(): UserRecord[] {
       username: "admin",
       password: "password",
       name: "John Wick",
-      allowedScopes: ["orders:read", "orders:read:any"],
+      roles: ["admin"],
     },
     {
       userId: testUserId,
       username: "user",
       password: "password",
       name: "John Smith",
-      allowedScopes: ["orders:read"],
+      roles: ["customer"],
     },
     {
       userId: janeUserId,
