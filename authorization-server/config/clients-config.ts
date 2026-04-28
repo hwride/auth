@@ -13,8 +13,8 @@ const idTokenLifetimeSeconds = 60 * 60;
 const refreshTokenLifetimeSeconds = 60 * 60 * 24 * 2;
 const defaultClientBase = "http://localhost:3000";
 
-export const clientsConfig: ClientConfig[] = [
-  {
+export const clientsConfig: Readonly<ClientConfig>[] = [
+  Object.freeze({
     clientId: "client-id-opaque",
     clientSecret: "test-client-secret",
     redirectUris: [
@@ -27,8 +27,8 @@ export const clientsConfig: ClientConfig[] = [
     accessTokenLifetimeSeconds,
     idTokenLifetimeSeconds,
     refreshTokenLifetimeSeconds,
-  },
-  {
+  }),
+  Object.freeze({
     clientId: "client-id-jwt",
     clientSecret: "other-test-client-secret",
     redirectUris: [
@@ -41,5 +41,5 @@ export const clientsConfig: ClientConfig[] = [
     accessTokenLifetimeSeconds,
     idTokenLifetimeSeconds,
     refreshTokenLifetimeSeconds,
-  },
+  }),
 ];

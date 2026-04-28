@@ -5,7 +5,7 @@
 
 export const ordersApiResource = "https://orders-api.example.test";
 
-const supportedResources = [ordersApiResource] as const;
+const supportedResources = Object.freeze([ordersApiResource]);
 
 export type SupportedResource = (typeof supportedResources)[number];
 
