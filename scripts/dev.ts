@@ -38,12 +38,16 @@ async function main() {
   process.env.CLIENT_SECRET ??= "other-test-client-secret";
   process.env.DEFAULT_SCOPES ??= "openid orders:read";
 
+  console.log("Starting authorization server...");
   await startAuthorizationServer();
 
+  console.log("Waiting for authorization server...");
   await waitForAuthServerDiscovery();
 
-  await startClient();
+  console.log("Starting resource server...");
   await startResourceServer();
+  console.log("Starting client...");
+  await startClient();
 }
 
 async function waitForAuthServerDiscovery() {
