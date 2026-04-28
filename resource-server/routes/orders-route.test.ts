@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import type { OutgoingHttpHeaders } from "node:http";
 import test from "node:test";
 import { createServer } from "../resource-server.ts";
+import { janeUserId, testUserId } from "../stores/order-store.ts";
 import {
   createMockAuthServer,
   type MockAuthServer,
@@ -9,13 +10,13 @@ import {
 
 const resourceId = "https://orders-api.example.test";
 
-test("GET /orders returns orders with user ID from token subject", async () => {
+test("GET /orders returns orders for the authenticated user from the order store", async () => {
   const authServer = await createMockAuthServer();
   const resourceServer = createTestResourceServer(authServer);
 
   try {
     const token = await authServer.createAccessToken({
-      sub: "user-123",
+      sub: testUserId,
       scope: "orders:read",
       aud: resourceId,
     });
@@ -37,9 +38,94 @@ test("GET /orders returns orders with user ID from token subject", async () => {
     const body = response.json() as {
       orders: Array<{ orderId: string; userId: string }>;
     };
-    assert.equal(body.orders.length, 2);
-    assert.equal(body.orders[0].userId, "user-123");
-    assert.equal(body.orders[1].userId, "user-123");
+
+    assert.deepEqual(body.orders, [
+      { orderId: "order-001", userId: testUserId },
+      { orderId: "order-002", userId: testUserId },
+    ]);
+  } finally {
+    await resourceServer.close();
+    await authServer.close();
+  }
+});
+
+test("GET /orders/:id returns an individual order when it is owned by the authenticated user", async () => {
+  const authServer = await createMockAuthServer();
+  const resourceServer = createTestResourceServer(authServer);
+
+  try {
+    const token = await authServer.createAccessToken({
+      sub: testUserId,
+      scope: "orders:read",
+      aud: resourceId,
+    });
+
+    const response = await resourceServer.inject({
+      method: "GET",
+      url: "/orders/order-001",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), {
+      order: { orderId: "order-001", userId: testUserId },
+    });
+  } finally {
+    await resourceServer.close();
+    await authServer.close();
+  }
+});
+
+test("GET /orders/:id returns 403 when the order is owned by a different user", async () => {
+  const authServer = await createMockAuthServer();
+  const resourceServer = createTestResourceServer(authServer);
+
+  try {
+    const token = await authServer.createAccessToken({
+      sub: testUserId,
+      scope: "orders:read",
+      aud: resourceId,
+    });
+
+    const response = await resourceServer.inject({
+      method: "GET",
+      url: "/orders/order-003",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    assert.equal(response.statusCode, 403);
+    assert.deepEqual(response.json(), { error: "forbidden" });
+  } finally {
+    await resourceServer.close();
+    await authServer.close();
+  }
+});
+
+test("GET /orders/:id returns 404 when no order with the given id exists", async () => {
+  const authServer = await createMockAuthServer();
+  const resourceServer = createTestResourceServer(authServer);
+
+  try {
+    const token = await authServer.createAccessToken({
+      sub: testUserId,
+      scope: "orders:read",
+      aud: resourceId,
+    });
+
+    const response = await resourceServer.inject({
+      method: "GET",
+      url: "/orders/order-999",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    assert.equal(response.statusCode, 404);
+    assert.deepEqual(response.json(), { error: "not_found" });
   } finally {
     await resourceServer.close();
     await authServer.close();
@@ -52,7 +138,7 @@ test("GET /orders returns 403 when the access token does not include orders:read
 
   try {
     const token = await authServer.createAccessToken({
-      sub: "user-123",
+      sub: testUserId,
       scope: "openid profile",
       aud: resourceId,
     });
@@ -60,6 +146,37 @@ test("GET /orders returns 403 when the access token does not include orders:read
     const response = await resourceServer.inject({
       method: "GET",
       url: "/orders",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    assert.equal(response.statusCode, 403);
+    assert.equal(
+      getHeader(response.headers, "www-authenticate"),
+      `Bearer realm="resource-server", error="insufficient_scope", scope="orders:read"`,
+    );
+    assert.deepEqual(response.json(), { error: "insufficient_scope" });
+  } finally {
+    await resourceServer.close();
+    await authServer.close();
+  }
+});
+
+test("GET /orders/:id returns 403 when the access token does not include orders:read scope", async () => {
+  const authServer = await createMockAuthServer();
+  const resourceServer = createTestResourceServer(authServer);
+
+  try {
+    const token = await authServer.createAccessToken({
+      sub: janeUserId,
+      scope: "openid profile",
+      aud: resourceId,
+    });
+
+    const response = await resourceServer.inject({
+      method: "GET",
+      url: "/orders/order-003",
       headers: {
         authorization: `Bearer ${token}`,
       },
@@ -155,7 +272,7 @@ test("GET /orders returns 401 when issuer does not match", async () => {
   try {
     const token = await authServer.createAccessToken({
       iss: "https://different-issuer.example.test",
-      sub: "user-123",
+      sub: testUserId,
     });
 
     const response = await resourceServer.inject({
@@ -183,7 +300,7 @@ test("GET /orders returns 401 when aud is missing", async () => {
 
   try {
     const token = await authServer.createAccessToken({
-      sub: "user-123",
+      sub: testUserId,
       scope: "orders:read",
     });
 
@@ -212,7 +329,7 @@ test("GET /orders returns 401 when aud does not match", async () => {
 
   try {
     const token = await authServer.createAccessToken({
-      sub: "user-123",
+      sub: testUserId,
       scope: "orders:read",
       aud: "invalid-aud",
     });
@@ -242,7 +359,7 @@ test("GET /orders rejects expired tokens", async () => {
 
   try {
     const token = await authServer.createAccessToken({
-      sub: "user-123",
+      sub: testUserId,
       exp: Math.floor(Date.now() / 1000) - 10,
       nbf: Math.floor(Date.now() / 1000) - 60,
     });
