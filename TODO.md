@@ -1,4 +1,7 @@
-# To do
+# TODO
+
+## Authorization server
+
 Some potential things that could be added to this auth server.
 
 - [ ] Change from username to user ID
@@ -18,7 +21,7 @@ Some potential things that could be added to this auth server.
 - [x] OIDC /userinfo endpoint
 - [x] Move some server config to be per client
 - [x] Move all token expiry to server config.
-- [x] Refresh tokens static 
+- [x] Refresh tokens static
 - [x] Add `expires_in` to token response
 - [x] `nonce`
 - [x] OIDC - ID token
@@ -32,3 +35,17 @@ Some potential things that could be added to this auth server.
 - [x] Opaque access token
 - [x] OAuth authorization code flow basic
 - [x] Well known endpoint https://openid.net/specs/openid-connect-discovery-1_0.html
+
+## Client
+
+- [ ] Session to remember state/tokens
+- [ ] Call to protected resource with access token
+- [ ] Look at https://datatracker.ietf.org/doc/html/rfc9068 JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens
+- [ ] Actually use refresh tokens
+- [ ] Add client credentials flow
+- [ ] Maybe other flows?
+
+## Resource server
+
+- [ ] Validate `aud` (audience) claim on incoming access tokens for `/orders`.
+- [ ] Make sure JWKS cache expires properly.
