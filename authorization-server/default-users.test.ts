@@ -1,10 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { testUserId, defaultUsers, janeUserId } from "./default-users.ts";
+import {
+  testUserId,
+  defaultUsers,
+  janeUserId,
+  adminUserId,
+} from "./default-users.ts";
 import { createUserStore } from "./stores/user-store.ts";
 
 test("defaultUsers returns the seeded test users", function () {
   assert.deepEqual(defaultUsers(), [
+    {
+      userId: adminUserId,
+      username: "admin",
+      password: "password",
+      name: "John Wick",
+      allowedScopes: ["orders:read", "orders:read:any"],
+    },
     {
       userId: testUserId,
       username: "user",
