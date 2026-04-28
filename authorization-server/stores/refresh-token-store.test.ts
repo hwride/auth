@@ -8,6 +8,7 @@ test("refresh token store generates a token and stores refresh token record with
   const refreshToken = refreshTokenStore.generateNew(
     {
       clientId: "client-id-opaque",
+      resource: "https://orders-api.example.test",
       scope: "openid offline_access email",
       subject: "test-user",
     },
@@ -19,6 +20,7 @@ test("refresh token store generates a token and stores refresh token record with
   const refreshTokenRecord = refreshTokenStore.get(refreshToken);
   assert.notEqual(refreshTokenRecord, undefined);
   assert.equal(refreshTokenRecord.clientId, "client-id-opaque");
+  assert.equal(refreshTokenRecord.resource, "https://orders-api.example.test");
   assert.equal(refreshTokenRecord.scope, "openid offline_access email");
   assert.equal(refreshTokenRecord.subject, "test-user");
   assert.ok(

@@ -30,6 +30,8 @@ async function main() {
     process.env.RESOURCE_SERVER_PORT ?? defaultResourceServerPort,
   );
   process.env.RESOURCE_SERVER_PORT = String(resourceServerPort);
+  process.env.DEFAULT_RESOURCE =
+    process.env.DEFAULT_RESOURCE ?? "https://orders-api.example.test";
 
   // Client
   const clientPort = Number(process.env.CLIENT_PORT ?? defaultClientPort);

@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { clientsConfig, type ClientConfig } from "../config/clients-config.ts";
+import {
+  isSupportedResource,
+  type SupportedResource,
+} from "../config/resources-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 import type { AuthorizationCodeStore } from "../stores/authorization-code-store.ts";
 import type { UserRecord, UserStore } from "../stores/user-store.ts";
@@ -14,6 +18,7 @@ type AuthorizeQueryParams = {
   state?: string;
   code_challenge?: string;
   code_challenge_method?: string;
+  resource?: string;
 };
 
 export function registerAuthorizationRoute(
@@ -93,6 +98,7 @@ type AuthorizationRequest = {
   state?: string;
   codeChallenge?: string;
   codeChallengeMethod?: "plain" | "S256";
+  resource?: SupportedResource;
 };
 type AuthorizationRequestError = {
   statusCode: number;
@@ -150,6 +156,14 @@ function validateAuthorizationRequest(
     };
   }
 
+  let requestedResource: SupportedResource | undefined;
+  if (input.resource) {
+    if (!isSupportedResource(input.resource)) {
+      return createInvalidTargetError();
+    }
+    requestedResource = input.resource;
+  }
+
   const successResponse: AuthorizationRequest = {
     clientConfig,
     redirectUri: input.redirect_uri,
@@ -157,6 +171,7 @@ function validateAuthorizationRequest(
     scope: input.scope,
     nonce: input.nonce,
     state: input.state,
+    resource: requestedResource,
   };
 
   // Expose PKCE data. https://datatracker.ietf.org/doc/html/rfc7636
@@ -208,6 +223,7 @@ function renderLoginPage(
   setIfExists("nonce", "nonce");
   setIfExists("codeChallenge", "code_challenge");
   setIfExists("codeChallengeMethod", "code_challenge_method");
+  setIfExists("resource", "resource");
   const signupPath = `/signup?${signupPathSearchParams.toString()}`;
 
   return `<!doctype html>
@@ -229,6 +245,7 @@ function renderLoginPage(
       <input type="hidden" name="state" value="${escapeHtml(authorizationRequest.state ?? "")}">
       <input type="hidden" name="code_challenge" value="${escapeHtml(authorizationRequest.codeChallenge ?? "")}">
       <input type="hidden" name="code_challenge_method" value="${escapeHtml(authorizationRequest.codeChallengeMethod ?? "")}">
+      <input type="hidden" name="resource" value="${escapeHtml(authorizationRequest.resource ?? "")}">
       <label>
         Username
         <input type="text" name="username" autocomplete="username" required>
@@ -273,6 +290,7 @@ function createAuthorizationRedirectUrl(
     redirectUri: authorizationRequest.redirectUri,
     scope: filterScopeByUserAllowedScopes(authorizationRequest.scope, user),
     nonce: authorizationRequest.nonce,
+    resource: authorizationRequest.resource,
     expiresAt:
       Date.now() + serverConfig.authorizationCodeLifetimeSeconds * 1000,
     codeChallenge: authorizationRequest.codeChallenge,
@@ -308,6 +326,16 @@ function filterScopeByUserAllowedScopes(
   });
 
   return filteredScopes.length > 0 ? filteredScopes.join(" ") : undefined;
+}
+
+function createInvalidTargetError(): AuthorizationRequestError {
+  return {
+    statusCode: 400,
+    error: {
+      error: "invalid_target",
+      error_description: "Unsupported resource indicator",
+    },
+  };
 }
 
 function escapeHtml(value: string) {

@@ -4,6 +4,7 @@ import {
   createAuthorizationCodeStore,
   type AuthorizationCodeStore,
 } from "../stores/authorization-code-store.ts";
+import { ordersApiResource } from "../config/resources-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 import { testUserId, defaultUsers } from "../default-users.ts";
 import { createServer } from "../server.ts";
@@ -354,6 +355,92 @@ test("GET authorization endpoint sign up link preserves nonce parameter", async 
     html,
     /href="\/signup\?client_id=client-id-opaque&amp;response_type=code&amp;redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback&amp;scope=openid\+profile&amp;nonce=nonce-value-123"/,
   );
+});
+
+test("POST authorization endpoint stores orders API resource indicator with the authorization code", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const response = await submitAuthorizationLogin(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      resource: ordersApiResource,
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+  );
+
+  assert.equal(response.status, 302);
+
+  const redirectUrl = getRedirectUrl(response);
+  const code = redirectUrl.searchParams.get("code");
+  assert.notEqual(code, null);
+
+  const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
+  assert.equal(codeRecord.resource, ordersApiResource);
+});
+
+test("POST authorization endpoint rejects unsupported resource indicators", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const response = await submitAuthorizationLogin(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      resource: "https://payments-api.example.test",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: "invalid_target",
+    error_description: "Unsupported resource indicator",
+  });
+  assert.equal(authorizationCodeStore.isEmpty(), true);
+});
+
+test("POST authorization endpoint rejects resource indicators that are not absolute URIs", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const response = await submitAuthorizationLogin(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      resource: "orders-api",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: "invalid_target",
+    error_description: "Unsupported resource indicator",
+  });
+  assert.equal(authorizationCodeStore.isEmpty(), true);
+});
+
+test("POST authorization endpoint rejects resource indicators with fragments", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const response = await submitAuthorizationLogin(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      resource: `${ordersApiResource}#orders`,
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: "invalid_target",
+    error_description: "Unsupported resource indicator",
+  });
+  assert.equal(authorizationCodeStore.isEmpty(), true);
 });
 
 test("POST authorization endpoint rejects invalid login credentials", async function () {
