@@ -22,13 +22,23 @@ export function registerOrdersRoute(
     }
 
     // https://www.rfc-editor.org/rfc/rfc6750.html#section-3.1
-    if (!hasScope(authenticatedUser.scope, "orders:read")) {
+
+    const hasScopeOrdersReadAny = hasScope(
+      authenticatedUser.scope,
+      "orders:read:any",
+    );
+    if (
+      !hasScope(authenticatedUser.scope, "orders:read") &&
+      !hasScopeOrdersReadAny
+    ) {
       sendInsufficientScope(reply);
       return;
     }
 
     return {
-      orders: orderStore.getOrdersByUserId(authenticatedUser.sub),
+      orders: hasScopeOrdersReadAny
+        ? orderStore.getOrdersAll()
+        : orderStore.getOrdersByUserId(authenticatedUser.sub),
     };
   });
 
@@ -43,7 +53,14 @@ export function registerOrdersRoute(
       return;
     }
 
-    if (!hasScope(authenticatedUser.scope, "orders:read")) {
+    const hasScopeOrdersReadAny = hasScope(
+      authenticatedUser.scope,
+      "orders:read:any",
+    );
+    if (
+      !hasScope(authenticatedUser.scope, "orders:read") &&
+      !hasScopeOrdersReadAny
+    ) {
       sendInsufficientScope(reply);
       return;
     }
@@ -56,7 +73,7 @@ export function registerOrdersRoute(
       return;
     }
 
-    if (order.userId !== authenticatedUser.sub) {
+    if (!hasScopeOrdersReadAny && order.userId !== authenticatedUser.sub) {
       reply.status(403).send({ error: "forbidden" });
       return;
     }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import type { OutgoingHttpHeaders } from "node:http";
 import test from "node:test";
 import { createServer } from "../resource-server.ts";
-import { janeUserId, testUserId } from "../stores/order-store.ts";
+import { adminUserId, janeUserId, testUserId } from "../stores/order-store.ts";
 import {
   createMockAuthServer,
   type MockAuthServer,
@@ -49,6 +49,43 @@ test("GET /orders returns orders for the authenticated user from the order store
   }
 });
 
+test("GET /orders returns all orders when the access token includes orders:read:any scope", async () => {
+  const authServer = await createMockAuthServer();
+  const resourceServer = createTestResourceServer(authServer);
+
+  try {
+    const token = await authServer.createAccessToken({
+      sub: adminUserId,
+      scope: "orders:read:any",
+      aud: resourceId,
+    });
+
+    const response = await resourceServer.inject({
+      method: "GET",
+      url: "/orders",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+
+    const body = response.json() as {
+      orders: Array<{ orderId: string; userId: string }>;
+    };
+
+    assert.deepEqual(body.orders, [
+      { orderId: "order-001", userId: testUserId },
+      { orderId: "order-002", userId: testUserId },
+      { orderId: "order-003", userId: janeUserId },
+      { orderId: "order-004", userId: janeUserId },
+    ]);
+  } finally {
+    await resourceServer.close();
+    await authServer.close();
+  }
+});
+
 test("GET /orders/:id returns an individual order when it is owned by the authenticated user", async () => {
   const authServer = await createMockAuthServer();
   const resourceServer = createTestResourceServer(authServer);
@@ -71,6 +108,35 @@ test("GET /orders/:id returns an individual order when it is owned by the authen
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.json(), {
       order: { orderId: "order-001", userId: testUserId },
+    });
+  } finally {
+    await resourceServer.close();
+    await authServer.close();
+  }
+});
+
+test("GET /orders/:id returns another user's order when the access token includes orders:read:any scope", async () => {
+  const authServer = await createMockAuthServer();
+  const resourceServer = createTestResourceServer(authServer);
+
+  try {
+    const token = await authServer.createAccessToken({
+      sub: adminUserId,
+      scope: "orders:read:any",
+      aud: resourceId,
+    });
+
+    const response = await resourceServer.inject({
+      method: "GET",
+      url: "/orders/order-003",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), {
+      order: { orderId: "order-003", userId: janeUserId },
     });
   } finally {
     await resourceServer.close();

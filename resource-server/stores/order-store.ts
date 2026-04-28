@@ -4,6 +4,7 @@ export type OrderRecord = {
 };
 
 export type OrderStore = {
+  getOrdersAll(): OrderRecord[];
   getOrdersByUserId(userId: string): OrderRecord[];
   getOrderById(orderId: string): OrderRecord | undefined;
 };
@@ -25,6 +26,9 @@ export function createOrderStore(
   }
 
   return {
+    getOrdersAll() {
+      return [...ordersById.values()];
+    },
     getOrdersByUserId(userId) {
       return [...(ordersByUserId.get(userId) ?? [])];
     },
@@ -34,6 +38,7 @@ export function createOrderStore(
   };
 }
 
+export const adminUserId = "00000000-0000-0000-0000-000000000000";
 export const testUserId = "00000000-0000-0000-0000-000000000001";
 export const janeUserId = "00000000-0000-0000-0000-000000000002";
 
