@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { authenticateAccessToken } from "../utils/access-token-auth.ts";
+import { hasScope } from "../utils/has-scope.ts";
 import type { ResourceServerConfig } from "../config.ts";
 import type { OrderStore } from "../stores/order-store.ts";
 
@@ -72,8 +73,4 @@ function sendInsufficientScope(reply: FastifyReply) {
     )
     .status(403)
     .send({ error: "insufficient_scope" });
-}
-
-function hasScope(scope: string | undefined, expectedScope: string) {
-  return scope?.split(/\s+/).includes(expectedScope) ?? false;
 }
