@@ -34,8 +34,8 @@ export function createOrderStore(
   };
 }
 
-export const testUserId = "00000000-0000-0000-0000-000000000000";
-export const janeUserId = "00000000-0000-0000-0000-000000000001";
+export const testUserId = "00000000-0000-0000-0000-000000000001";
+export const janeUserId = "00000000-0000-0000-0000-000000000002";
 
 export function createDefaultOrderStore() {
   return createOrderStore([
