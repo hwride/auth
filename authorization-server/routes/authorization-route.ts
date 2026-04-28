@@ -8,6 +8,7 @@ import {
 import type { ServerConfig } from "../config/server-config.ts";
 import type { AuthorizationCodeStore } from "../stores/authorization-code-store.ts";
 import type { UserRecord, UserStore } from "../stores/user-store.ts";
+import { getAllowedScopesForUser } from "../utils/rbac-utils.ts";
 
 type AuthorizeQueryParams = {
   client_id?: string;
@@ -326,7 +327,7 @@ function filterScopeByUserAllowedScopes(
     .split(/\s+/)
     .filter((scope) => scope.length > 0);
 
-  const allowedScopes = new Set(user.allowedScopes ?? []);
+  const allowedScopes = new Set<string>(getAllowedScopesForUser(user));
   const filteredScopes = requestedScopes.filter((scope) => {
     return unrestrictedScopes.has(scope) || allowedScopes.has(scope);
   });
