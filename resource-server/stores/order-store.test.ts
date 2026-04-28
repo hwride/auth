@@ -5,6 +5,7 @@ import { createOrderStore } from "./order-store.ts";
 test("createOrderStore starts empty by default", function () {
   const orderStore = createOrderStore();
 
+  assert.deepEqual(orderStore.getOrdersAll(), []);
   assert.deepEqual(orderStore.getOrdersByUserId("missing-user-id"), []);
   assert.equal(orderStore.getOrderById("missing-order-id"), undefined);
 });
@@ -14,8 +15,13 @@ test("createOrderStore allows loading orders by id and user id", function () {
     { orderId: "existing-order-id", userId: "existing-user-id" },
     { orderId: "other-order-id", userId: "other-user-id" },
   ]);
+  const orders = orderStore.getOrdersAll();
   const existingUserOrders = orderStore.getOrdersByUserId("existing-user-id");
 
+  assert.deepEqual(orders, [
+    { orderId: "existing-order-id", userId: "existing-user-id" },
+    { orderId: "other-order-id", userId: "other-user-id" },
+  ]);
   assert.deepEqual(existingUserOrders, [
     { orderId: "existing-order-id", userId: "existing-user-id" },
   ]);
@@ -24,6 +30,22 @@ test("createOrderStore allows loading orders by id and user id", function () {
     existingUserOrders[0],
   );
   assert.deepEqual(orderStore.getOrdersByUserId("missing-user-id"), []);
+});
+
+test("getOrdersAll returns a copy of all orders", function () {
+  const orderStore = createOrderStore([
+    { orderId: "existing-order-id", userId: "existing-user-id" },
+  ]);
+  const orders = orderStore.getOrdersAll();
+
+  orders.push({
+    orderId: "extra-order-id",
+    userId: "existing-user-id",
+  });
+
+  assert.deepEqual(orderStore.getOrdersAll(), [
+    { orderId: "existing-order-id", userId: "existing-user-id" },
+  ]);
 });
 
 test("getOrdersByUserId returns a copy of matching orders", function () {
