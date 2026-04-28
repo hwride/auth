@@ -7,6 +7,7 @@ type SignupPageQueryParams = {
   response_type?: string;
   redirect_uri?: string;
   scope?: string;
+  resource?: string;
   nonce?: string;
   state?: string;
   code_challenge?: string;
@@ -39,6 +40,7 @@ export function registerSignupRoute(
       response_type?: string;
       redirect_uri?: string;
       scope?: string;
+      resource?: string;
       nonce?: string;
       state?: string;
       code_challenge?: string;
@@ -96,6 +98,9 @@ export function registerSignupRoute(
     if (request.body.scope) {
       loginUrl.searchParams.set("scope", request.body.scope);
     }
+    if (request.body.resource) {
+      loginUrl.searchParams.set("resource", request.body.resource);
+    }
     if (request.body.nonce) {
       loginUrl.searchParams.set("nonce", request.body.nonce);
     }
@@ -140,6 +145,7 @@ function renderSignupPage({
       <input type="hidden" name="response_type" value="${escapeHtml(signupQueryParams.response_type ?? "")}">
       <input type="hidden" name="redirect_uri" value="${escapeHtml(signupQueryParams.redirect_uri ?? "")}">
       <input type="hidden" name="scope" value="${escapeHtml(signupQueryParams.scope ?? "")}">
+      <input type="hidden" name="resource" value="${escapeHtml(signupQueryParams.resource ?? "")}">
       <input type="hidden" name="nonce" value="${escapeHtml(signupQueryParams.nonce ?? "")}">
       <input type="hidden" name="state" value="${escapeHtml(signupQueryParams.state ?? "")}">
       <input type="hidden" name="code_challenge" value="${escapeHtml(signupQueryParams.code_challenge ?? "")}">
@@ -179,6 +185,9 @@ function createLinkWithParams(path: string, params: SignupPageQueryParams) {
   }
   if (params.scope) {
     url.searchParams.set("scope", params.scope);
+  }
+  if (params.resource) {
+    url.searchParams.set("resource", params.resource);
   }
   if (params.nonce) {
     url.searchParams.set("nonce", params.nonce);
