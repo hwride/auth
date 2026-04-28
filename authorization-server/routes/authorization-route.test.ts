@@ -6,7 +6,7 @@ import {
 } from "../stores/authorization-code-store.ts";
 import { ordersApiResource } from "../config/resources-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
-import { testUserId, defaultUsers } from "../default-users.ts";
+import { adminUserId, testUserId, defaultUsers } from "../default-users.ts";
 import { createServer } from "../server.ts";
 import { getTestServerConfig } from "../test/test-utils.ts";
 import { createUserStore, type UserStore } from "../stores/user-store.ts";
@@ -137,7 +137,7 @@ test("POST authorization endpoint stores scope with the authorization code", asy
       client_id: "client-id-opaque",
       response_type: "code",
       redirect_uri: "http://localhost:3000/callback",
-      scope: "read:profile write:profile",
+      scope: "openid profile email",
     },
     defaultServerConfig,
     authorizationCodeStore,
@@ -150,11 +150,11 @@ test("POST authorization endpoint stores scope with the authorization code", asy
   assert.notEqual(code, null);
 
   const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
-  assert.equal(codeRecord.scope, "read:profile write:profile");
+  assert.equal(codeRecord.scope, "openid profile email");
   assert.ok(codeRecord.expiresAt > Date.now());
 });
 
-test("POST authorization endpoint strips orders:read scope for users that do not have it", async function () {
+test("POST authorization endpoint stores allowed resource scopes", async function () {
   const authorizationCodeStore = createAuthorizationCodeStore();
   const response = await submitAuthorizationLogin(
     {
@@ -162,6 +162,59 @@ test("POST authorization endpoint strips orders:read scope for users that do not
       response_type: "code",
       redirect_uri: "http://localhost:3000/callback",
       scope: "openid orders:read profile",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+  );
+
+  assert.equal(response.status, 302);
+
+  const redirectUrl = getRedirectUrl(response);
+  const code = redirectUrl.searchParams.get("code");
+  assert.notEqual(code, null);
+
+  const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
+  assert.equal(codeRecord.scope, "openid orders:read profile");
+  assert.ok(codeRecord.expiresAt > Date.now());
+});
+
+test("POST authorization endpoint stores allowed admin resource scopes", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const response = await submitAuthorizationLogin(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      scope: "openid orders:read:any profile",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    {
+      username: "admin",
+      password: "password",
+    },
+  );
+
+  assert.equal(response.status, 302);
+
+  const redirectUrl = getRedirectUrl(response);
+  const code = redirectUrl.searchParams.get("code");
+  assert.notEqual(code, null);
+
+  const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
+  assert.equal(codeRecord.subject, adminUserId);
+  assert.equal(codeRecord.scope, "openid orders:read:any profile");
+  assert.ok(codeRecord.expiresAt > Date.now());
+});
+
+test("POST authorization endpoint strips restricted and unknown scopes for users that do not have them", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const response = await submitAuthorizationLogin(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      scope: "openid orders:read orders:read:any profile payments:write",
     },
     defaultServerConfig,
     authorizationCodeStore,

@@ -105,6 +105,15 @@ type AuthorizationRequestError = {
   error: { error: string; error_description?: string };
 };
 
+const unrestrictedScopes = new Set([
+  "openid",
+  "profile",
+  "email",
+  "address",
+  "phone",
+  "offline_access",
+]);
+
 function validateAuthorizationRequest(
   input: AuthorizeQueryParams,
 ): AuthorizationRequest | AuthorizationRequestError {
@@ -319,10 +328,7 @@ function filterScopeByUserAllowedScopes(
 
   const allowedScopes = new Set(user.allowedScopes ?? []);
   const filteredScopes = requestedScopes.filter((scope) => {
-    if (scope !== "orders:read") {
-      return true;
-    }
-    return allowedScopes.has(scope);
+    return unrestrictedScopes.has(scope) || allowedScopes.has(scope);
   });
 
   return filteredScopes.length > 0 ? filteredScopes.join(" ") : undefined;
