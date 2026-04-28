@@ -184,6 +184,20 @@
         <label>
           <input
             type="checkbox"
+            id="resource-checkbox"
+            <%= useDefaultResource ? "checked" : "" %>
+          />
+          Use resource?
+          <input
+            type="text"
+            id="resource-input"
+            placeholder="https://api.example.com/"
+            value="<%= defaultResource %>"
+          />
+        </label>
+        <label>
+          <input
+            type="checkbox"
             id="audience-checkbox"
             <%= useDefaultAudience ? "checked" : "" %>
           />
@@ -347,6 +361,8 @@
       const oauth = {
         stateCheckbox: document.getElementById("state-checkbox"),
         pkceCheckbox: document.getElementById("pkce-checkbox"),
+        resourceCheckbox: document.getElementById("resource-checkbox"),
+        resourceInput: document.getElementById("resource-input"),
         audienceCheckbox: document.getElementById("audience-checkbox"),
         audienceInput: document.getElementById("audience-input"),
         additionalScopesCheckbox: document.getElementById(
@@ -410,6 +426,12 @@
         }
         if (oauth.pkceCheckbox.checked) {
           queryParams.set("use_pkce", "true");
+        }
+        if (oauth.resourceCheckbox.checked) {
+          const resource = oauth.resourceInput.value.trim();
+          if (resource) {
+            queryParams.set("resource", resource);
+          }
         }
         if (oauth.audienceCheckbox.checked) {
           const audience = oauth.audienceInput.value.trim();
@@ -568,6 +590,7 @@
             ...oauth.scopeCheckboxes,
             oauth.stateCheckbox,
             oauth.pkceCheckbox,
+            oauth.resourceCheckbox,
             oauth.audienceCheckbox,
             oauth.additionalScopesCheckbox,
           ],
@@ -575,7 +598,11 @@
           updateAuthorizeLink,
         );
         addListeners(
-          [oauth.additionalScopesInput, oauth.audienceInput],
+          [
+            oauth.additionalScopesInput,
+            oauth.resourceInput,
+            oauth.audienceInput,
+          ],
           "input",
           updateAuthorizeLink,
         );

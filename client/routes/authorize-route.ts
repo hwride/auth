@@ -11,6 +11,7 @@ export function registerAuthorizeRoute(
   fastify.get<{
     Querystring: {
       scope?: string;
+      resource?: string;
       audience?: string;
       max_age?: string;
       prompt?: "none" | "login" | "consent" | "select_account";
@@ -25,6 +26,7 @@ export function registerAuthorizeRoute(
     const clientId = process.env.CLIENT_ID;
     const {
       scope,
+      resource,
       audience,
       max_age,
       prompt,
@@ -78,6 +80,9 @@ export function registerAuthorizeRoute(
         .includes("openid");
     } else {
       authFlowContext.isOidcFlow = false;
+    }
+    if (resource) {
+      authorizeQueryParams.resource = resource.trim();
     }
     if (audience) {
       authorizeQueryParams.audience = audience.trim();

@@ -7,6 +7,8 @@ import {
   type MockAuthServer,
 } from "../test-utils/mock-auth-server.ts";
 
+const resourceId = "https://orders-api.example.test";
+
 test("GET /orders returns orders with user ID from token subject", async () => {
   const authServer = await createMockAuthServer();
   const resourceServer = createTestResourceServer(authServer);
@@ -15,6 +17,7 @@ test("GET /orders returns orders with user ID from token subject", async () => {
     const token = await authServer.createAccessToken({
       sub: "user-123",
       scope: "orders:read",
+      aud: resourceId,
     });
 
     const response = await resourceServer.inject({
@@ -51,6 +54,7 @@ test("GET /orders returns 403 when the access token does not include orders:read
     const token = await authServer.createAccessToken({
       sub: "user-123",
       scope: "openid profile",
+      aud: resourceId,
     });
 
     const response = await resourceServer.inject({
@@ -173,6 +177,65 @@ test("GET /orders returns 401 when issuer does not match", async () => {
   }
 });
 
+test("GET /orders returns 401 when aud is missing", async () => {
+  const authServer = await createMockAuthServer();
+  const resourceServer = createTestResourceServer(authServer);
+
+  try {
+    const token = await authServer.createAccessToken({
+      sub: "user-123",
+      scope: "orders:read",
+    });
+
+    const response = await resourceServer.inject({
+      method: "GET",
+      url: "/orders",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    assert.equal(response.statusCode, 401);
+    assert.match(
+      getHeader(response.headers, "www-authenticate"),
+      /ERR_JWT_CLAIM_VALIDATION_FAILED/,
+    );
+  } finally {
+    await resourceServer.close();
+    await authServer.close();
+  }
+});
+
+test("GET /orders returns 401 when aud does not match", async () => {
+  const authServer = await createMockAuthServer();
+  const resourceServer = createTestResourceServer(authServer);
+
+  try {
+    const token = await authServer.createAccessToken({
+      sub: "user-123",
+      scope: "orders:read",
+      aud: "invalid-aud",
+    });
+
+    const response = await resourceServer.inject({
+      method: "GET",
+      url: "/orders",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    assert.equal(response.statusCode, 401);
+    assert.match(
+      getHeader(response.headers, "www-authenticate"),
+      /ERR_JWT_CLAIM_VALIDATION_FAILED/,
+    );
+  } finally {
+    await resourceServer.close();
+    await authServer.close();
+  }
+});
+
 test("GET /orders rejects expired tokens", async () => {
   const authServer = await createMockAuthServer();
   const resourceServer = createTestResourceServer(authServer);
@@ -201,6 +264,7 @@ test("GET /orders rejects expired tokens", async () => {
 
 function createTestResourceServer(authServer: MockAuthServer) {
   return createServer({
+    resourceId,
     acceptedAccessTokenAlgorithms: ["RS256"],
     authServerBase: authServer.authServerBase,
     issuer: authServer.issuer,

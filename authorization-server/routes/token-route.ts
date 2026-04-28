@@ -212,6 +212,7 @@ async function authCodeGrant({
     tokenStore,
     scope: authCodeRecord.scope,
     subject: authCodeRecord.subject,
+    resource: authCodeRecord.resource,
   });
 
   const response: AuthorizationCodeGrantResponse = {
@@ -245,6 +246,7 @@ async function authCodeGrant({
     response.refresh_token = refreshTokenStore.generateNew(
       {
         clientId: authCodeRecord.clientId,
+        resource: authCodeRecord.resource,
         scope: authCodeRecord.scope,
         subject: authCodeRecord.subject,
       },
@@ -319,6 +321,7 @@ async function refreshTokenGrant({
     serverConfig,
     clientConfig,
     tokenStore,
+    resource: refreshRecord.resource,
     scope: refreshRecord.scope,
     subject: refreshRecord.subject,
   });
@@ -386,12 +389,14 @@ async function generateAccessToken({
   tokenStore,
   scope,
   subject,
+  resource,
 }: {
   serverConfig: ServerConfig;
   clientConfig: ClientConfig;
   tokenStore: TokenStore;
   scope?: string;
   subject: string;
+  resource?: string;
 }) {
   if (clientConfig.accessTokenType === "opaque") {
     // Generate and save an access token.
@@ -411,7 +416,7 @@ async function generateAccessToken({
     // https://datatracker.ietf.org/doc/html/rfc9068
     const payload: JWTPayload = {
       iss: serverConfig.issuer,
-      aud: serverConfig.issuer,
+      aud: getAccessTokenAudience(serverConfig.issuer, scope, resource),
       sub: subject,
       client_id: clientConfig.clientId,
       jti: randomUUID(),
@@ -470,6 +475,22 @@ async function generateIdToken({
     .setIssuedAt(nowSeconds)
     .setExpirationTime(nowSeconds + clientConfig.idTokenLifetimeSeconds)
     .sign(serverConfig.privateKey);
+}
+
+function getAccessTokenAudience(
+  issuer: string,
+  scope: string | undefined,
+  resource: string | undefined,
+) {
+  if (resource) {
+    if (hasOpenIdScope(scope)) {
+      return [issuer, resource];
+    }
+
+    return resource;
+  }
+
+  return issuer;
 }
 
 function getNowSeconds() {

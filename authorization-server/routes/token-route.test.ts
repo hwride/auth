@@ -6,6 +6,7 @@ import {
   createAuthorizationCodeStore,
   type AuthorizationCodeStore,
 } from "../stores/authorization-code-store.ts";
+import { ordersApiResource } from "../config/resources-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 import {
   createRefreshTokenStore,
@@ -456,6 +457,83 @@ test("POST token endpoint includes scope in response and access token when prese
   assert.equal(tokenStore.isEmpty(), true);
 });
 
+test("POST token endpoint sets aud to orders API resource when resource indicator is present without openid scope", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
+    "client-id-jwt",
+    "profile",
+    undefined,
+    undefined,
+    "test-user-id",
+    ordersApiResource,
+  );
+
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
+  );
+
+  assert.equal(response.status, 200);
+  const tokenResponse = (await response.json()) as { access_token: string };
+
+  const verified = await jwtVerify(
+    tokenResponse.access_token,
+    defaultServerConfig.publicKey,
+    {
+      algorithms: ["RS256"],
+      issuer: defaultServerConfig.issuer,
+      audience: ordersApiResource,
+    },
+  );
+
+  assert.equal(verified.payload.aud, ordersApiResource);
+});
+
+test("POST token endpoint sets aud to issuer then orders API resource when openid scope and resource indicator are present", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
+    "client-id-jwt",
+    "openid profile",
+    undefined,
+    undefined,
+    "test-user-id",
+    ordersApiResource,
+  );
+
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
+  );
+
+  assert.equal(response.status, 200);
+  const tokenResponse = (await response.json()) as { access_token: string };
+
+  const verified = await jwtVerify(
+    tokenResponse.access_token,
+    defaultServerConfig.publicKey,
+    {
+      algorithms: ["RS256"],
+      issuer: defaultServerConfig.issuer,
+      audience: ordersApiResource,
+    },
+  );
+
+  assert.deepEqual(verified.payload.aud, [
+    defaultServerConfig.issuer,
+    ordersApiResource,
+  ]);
+});
+
 test("POST token endpoint returns an ID token when scope includes openid token", async function () {
   const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
     "client-id-jwt",
@@ -663,6 +741,39 @@ test("POST token endpoint includes refresh_token when scope includes offline_acc
   );
 });
 
+test("POST token endpoint stores resource indicator with refresh_token", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStoreWithCodeForClient(
+    "client-id-opaque",
+    "offline_access orders:read",
+    undefined,
+    undefined,
+    "test-user-id",
+    ordersApiResource,
+  );
+  const refreshTokenStore = createRefreshTokenStore();
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "authorization_code",
+      code: "test-auth-code",
+      redirect_uri: "http://localhost:3000/callback",
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+    createBasicAuthHeader("client-id-opaque", "test-client-secret"),
+    createTokenStore(),
+    refreshTokenStore,
+  );
+
+  assert.equal(response.status, 200);
+  const tokenResponse = (await response.json()) as {
+    refresh_token: string;
+  };
+
+  const refreshTokenRecord = refreshTokenStore.get(tokenResponse.refresh_token);
+  assert.notEqual(refreshTokenRecord, undefined);
+  assert.equal(refreshTokenRecord.resource, ordersApiResource);
+});
+
 test("POST token endpoint does not include refresh_token when offline_access is not in scope", async function () {
   const response = await fetchTokenEndpoint(
     {
@@ -780,6 +891,91 @@ test("POST token endpoint rejects refresh token issued to a different client", a
   });
 });
 
+test("POST token endpoint keeps resource audience when issuing an access token from a refresh token without openid scope", async function () {
+  const refreshTokenStore = createRefreshTokenStore();
+  const refreshToken = refreshTokenStore.generateNew(
+    {
+      clientId: "client-id-jwt",
+      resource: ordersApiResource,
+      scope: "offline_access orders:read",
+      subject: "test-user-id",
+    },
+    172800,
+  );
+
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    },
+    defaultServerConfig,
+    createAuthorizationCodeStore(),
+    createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
+    createTokenStore(),
+    refreshTokenStore,
+  );
+
+  assert.equal(response.status, 200);
+  const tokenResponse = (await response.json()) as {
+    access_token: string;
+  };
+
+  const verified = await jwtVerify(
+    tokenResponse.access_token,
+    defaultServerConfig.publicKey,
+    {
+      algorithms: ["RS256"],
+      issuer: defaultServerConfig.issuer,
+      audience: ordersApiResource,
+    },
+  );
+  assert.equal(verified.payload.aud, ordersApiResource);
+});
+
+test("POST token endpoint keeps openid issuer and resource audiences when issuing an access token from a refresh token", async function () {
+  const refreshTokenStore = createRefreshTokenStore();
+  const refreshToken = refreshTokenStore.generateNew(
+    {
+      clientId: "client-id-jwt",
+      resource: ordersApiResource,
+      scope: "openid offline_access orders:read",
+      subject: "test-user-id",
+    },
+    172800,
+  );
+
+  const response = await fetchTokenEndpoint(
+    {
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    },
+    defaultServerConfig,
+    createAuthorizationCodeStore(),
+    createBasicAuthHeader("client-id-jwt", "other-test-client-secret"),
+    createTokenStore(),
+    refreshTokenStore,
+  );
+
+  assert.equal(response.status, 200);
+  const tokenResponse = (await response.json()) as {
+    access_token: string;
+  };
+
+  const verified = await jwtVerify(
+    tokenResponse.access_token,
+    defaultServerConfig.publicKey,
+    {
+      algorithms: ["RS256"],
+      issuer: defaultServerConfig.issuer,
+      audience: ordersApiResource,
+    },
+  );
+  assert.deepEqual(verified.payload.aud, [
+    defaultServerConfig.issuer,
+    ordersApiResource,
+  ]);
+});
+
 test("POST token endpoint returns access token without rotating static refresh token", async function () {
   const refreshTokenStore = createRefreshTokenStore();
   const refreshToken = refreshTokenStore.generateNew(
@@ -889,6 +1085,7 @@ function createAuthorizationCodeStoreWithCodeForClient(
   nonce?: string,
   state?: string,
   subject = "test-user-id",
+  resource?: string,
 ) {
   return createAuthorizationCodeStoreWithCodeExpiresAtForClient(
     Date.now() + 60_000,
@@ -897,6 +1094,7 @@ function createAuthorizationCodeStoreWithCodeForClient(
     nonce,
     state,
     subject,
+    resource,
   );
 }
 
@@ -907,6 +1105,7 @@ function createAuthorizationCodeStoreWithCodeExpiresAtForClient(
   nonce?: string,
   state?: string,
   subject = "test-user-id",
+  resource?: string,
 ) {
   const authorizationCodeStore = createAuthorizationCodeStore();
   authorizationCodeStore.saveAuthorizationCode("test-auth-code", {
@@ -915,6 +1114,7 @@ function createAuthorizationCodeStoreWithCodeExpiresAtForClient(
     redirectUri: "http://localhost:3000/callback",
     scope,
     nonce,
+    resource,
     expiresAt,
   });
   return authorizationCodeStore;

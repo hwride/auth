@@ -4,20 +4,23 @@
 
 Some potential things that could be added to this auth server.
 
-- [ ] Change from username to user ID
+- [ ] Tidy up tests
 - [ ] Add /userinfo support for opqaue access tokens
 - [ ] RBAC
 - [ ] Support client_credentials grant (incl access tokens without a subject)
 - [ ] Support public clients - i.e. without client authentication.
 - [ ] Refresh token rotation
+- [ ] Refresh token revocation
 - [ ] Support key rotation
 - [ ] More OIDC checks https://openid.net/specs/openid-connect-core-1_0.html
-- [ ] Resource indicators https://datatracker.ietf.org/doc/html/rfc8707
+- [ ] Support downscoping resource/audience on refresh token grants
 - [ ] Token introspection https://datatracker.ietf.org/doc/html/rfc7662
 - [ ] Token exchange https://datatracker.ietf.org/doc/html/rfc8693
 - [ ] Dynamic client registration https://datatracker.ietf.org/doc/html/rfc7591
 - [ ] Auth server session
 - [ ] Make auth server state be stored server side rather than shared by query params between sign in/sign up.
+- [x] Resource indicators https://datatracker.ietf.org/doc/html/rfc8707
+- [x] Change from username to user ID
 - [x] OIDC /userinfo endpoint
 - [x] Move some server config to be per client
 - [x] Move all token expiry to server config.

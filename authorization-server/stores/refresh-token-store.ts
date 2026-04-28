@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 export type RefreshTokenRecord = {
   clientId: string;
+  resource?: string;
   scope?: string;
   subject: string;
   expiresAt: number;

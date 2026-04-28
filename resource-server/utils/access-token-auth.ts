@@ -5,6 +5,7 @@ const jwksByUri = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 const bearerChallenge = `Bearer realm="resource-server"`;
 
 export type AccessTokenVerificationConfig = {
+  resourceId: string;
   acceptedAccessTokenAlgorithms: string[];
   issuer: string;
   jwksUri: string;
@@ -41,8 +42,7 @@ export async function authenticateAccessToken(
       return undefined;
     }
 
-    const scope =
-      typeof payload.scope === "string" ? payload.scope : undefined;
+    const scope = typeof payload.scope === "string" ? payload.scope : undefined;
     return { sub: payload.sub, scope };
   } catch (e) {
     // Note you wouldn't normally expose this level of info in the response.
@@ -98,6 +98,8 @@ async function verifyAccessToken(
   const { payload } = await jwtVerify(token, jwks, {
     algorithms: config.acceptedAccessTokenAlgorithms,
     issuer: config.issuer,
+    // RFC 8707, Resource Indicators for OAuth 2.0
+    audience: config.resourceId,
   });
   return payload;
 }

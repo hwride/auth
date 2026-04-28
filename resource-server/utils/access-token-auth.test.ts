@@ -5,6 +5,7 @@ import { createMockAuthServer } from "../test-utils/mock-auth-server.ts";
 import { authenticateAccessToken } from "./access-token-auth.ts";
 
 const verificationConfig = {
+  resourceId: "https://orders-api.example.test",
   acceptedAccessTokenAlgorithms: ["RS256"],
   issuer: "https://issuer.example",
   jwksUri: "https://issuer.example/.well-known/jwks.json",
@@ -71,13 +72,14 @@ test("authenticateAccessToken returns the token subject when bearer token is val
   try {
     const token = await authServer.createAccessToken({
       sub: "user-123",
+      aud: verificationConfig.resourceId,
     });
 
     const authenticatedUser = await authenticateAccessToken(
       createRequest(`Bearer ${token}`),
       response.fastifyReply,
       {
-        acceptedAccessTokenAlgorithms: ["RS256"],
+        ...verificationConfig,
         issuer: authServer.issuer,
         jwksUri: authServer.jwksUri,
       },
@@ -100,13 +102,14 @@ test("authenticateAccessToken returns the token scope when bearer token scope is
     const token = await authServer.createAccessToken({
       sub: "user-123",
       scope: "orders:read",
+      aud: verificationConfig.resourceId,
     });
 
     const authenticatedUser = await authenticateAccessToken(
       createRequest(`Bearer ${token}`),
       response.fastifyReply,
       {
-        acceptedAccessTokenAlgorithms: ["RS256"],
+        ...verificationConfig,
         issuer: authServer.issuer,
         jwksUri: authServer.jwksUri,
       },
@@ -137,7 +140,7 @@ test("authenticateAccessToken returns invalid_token when bearer token algorithm 
       createRequest(`Bearer ${token}`),
       response.fastifyReply,
       {
-        acceptedAccessTokenAlgorithms: ["RS256"],
+        ...verificationConfig,
         issuer: authServer.issuer,
         jwksUri: authServer.jwksUri,
       },
