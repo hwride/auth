@@ -5,7 +5,9 @@ import {
 } from "./config.ts";
 import { registerHomeRoute } from "./routes/home-route.ts";
 import { registerOrdersRoute } from "./routes/orders-route.ts";
+import { registerProductsRoute } from "./routes/products-route.ts";
 import { createDefaultOrderStore } from "./stores/order-store.ts";
+import { createDefaultProductStore } from "./stores/product-store.ts";
 
 export const defaultResourceServerPort = 5000;
 
@@ -46,9 +48,11 @@ export function createServer(serverConfig: ResourceServerConfig) {
   });
 
   const orderStore = createDefaultOrderStore();
+  const productStore = createDefaultProductStore();
 
   registerHomeRoute(fastify);
   registerOrdersRoute(fastify, serverConfig, orderStore);
+  registerProductsRoute(fastify, serverConfig, productStore);
 
   return fastify;
 }

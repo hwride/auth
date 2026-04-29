@@ -4,7 +4,10 @@ import {
   createAuthorizationCodeStore,
   type AuthorizationCodeStore,
 } from "../stores/authorization-code-store.ts";
-import { ordersApiResource } from "../config/resources-config.ts";
+import {
+  ordersApiResource,
+  productsApiResource,
+} from "../config/resources-config.ts";
 import type { ServerConfig } from "../config/server-config.ts";
 import { adminUserId, testUserId, defaultUsers } from "../default-users.ts";
 import { createServer } from "../server.ts";
@@ -472,6 +475,29 @@ test("POST authorization endpoint stores orders API resource indicator with the 
 
   const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
   assert.equal(codeRecord.resource, ordersApiResource);
+});
+
+test("POST authorization endpoint stores products API resource indicator with the authorization code", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const response = await submitAuthorizationLogin(
+    {
+      client_id: "client-id-opaque",
+      response_type: "code",
+      redirect_uri: "http://localhost:3000/callback",
+      resource: productsApiResource,
+    },
+    defaultServerConfig,
+    authorizationCodeStore,
+  );
+
+  assert.equal(response.status, 302);
+
+  const redirectUrl = getRedirectUrl(response);
+  const code = redirectUrl.searchParams.get("code");
+  assert.notEqual(code, null);
+
+  const codeRecord = authorizationCodeStore.loadAuthorizationCode(code);
+  assert.equal(codeRecord.resource, productsApiResource);
 });
 
 test("POST authorization endpoint rejects unsupported resource indicators", async function () {

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { clientsConfig, type ClientConfig } from "../config/clients-config.ts";
 import {
+  getResourceConfig,
   isSupportedResource,
   type SupportedResource,
 } from "../config/resources-config.ts";
@@ -298,7 +299,11 @@ function createAuthorizationRedirectUrl(
     clientId: authorizationRequest.clientConfig.clientId,
     subject: user.userId,
     redirectUri: authorizationRequest.redirectUri,
-    scope: filterScopeByUserAllowedScopes(authorizationRequest.scope, user),
+    scope: filterAllowedScopes(
+      authorizationRequest.scope,
+      user,
+      authorizationRequest.resource,
+    ),
     nonce: authorizationRequest.nonce,
     resource: authorizationRequest.resource,
     expiresAt:
@@ -315,7 +320,21 @@ function createAuthorizationRedirectUrl(
   return redirectUrl.toString();
 }
 
-function filterScopeByUserAllowedScopes(
+function filterAllowedScopes(
+  requestedScope: string | undefined,
+  user: UserRecord,
+  requestedResource: SupportedResource | undefined,
+): string | undefined {
+  const filteredUserScopes = filterAllowedUserScopes(requestedScope, user);
+  return filterAllowedResourceScopes(filteredUserScopes, requestedResource);
+}
+
+/**
+ * Filter scopes according to what is allowed for a user.
+ *
+ * Takes into account user roles and allowed scopes.
+ */
+function filterAllowedUserScopes(
   requestedScope: string | undefined,
   user: UserRecord,
 ): string | undefined {
@@ -328,6 +347,30 @@ function filterScopeByUserAllowedScopes(
     .filter((scope) => scope.length > 0);
 
   const allowedScopes = new Set<string>(getAllowedScopesForUser(user));
+  const filteredScopes = requestedScopes.filter((scope) => {
+    return unrestrictedScopes.has(scope) || allowedScopes.has(scope);
+  });
+
+  return filteredScopes.length > 0 ? filteredScopes.join(" ") : undefined;
+}
+
+/**
+ * Filter scopes according to what is allowed for a resource.
+ */
+function filterAllowedResourceScopes(
+  requestedScope: string | undefined,
+  requestedResource: SupportedResource | undefined,
+): string | undefined {
+  if (!requestedScope || !requestedResource) {
+    return requestedScope;
+  }
+
+  const resourceConfig = getResourceConfig(requestedResource);
+  const allowedScopes = new Set<string>(resourceConfig.allowedScopes);
+  const requestedScopes = requestedScope
+    .split(/\s+/)
+    .filter((scope) => scope.length > 0);
+
   const filteredScopes = requestedScopes.filter((scope) => {
     return unrestrictedScopes.has(scope) || allowedScopes.has(scope);
   });

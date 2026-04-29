@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { createServer } from "./server.ts";
-import { ordersApiResource } from "./config/resources-config.ts";
+import {
+  ordersApiResource,
+  productsApiResource,
+} from "./config/resources-config.ts";
 import { createAuthorizationCodeStore } from "./stores/authorization-code-store.ts";
 import { createTokenStore } from "./stores/token-store.ts";
 import { getTestServerConfig } from "./test/test-utils.ts";
@@ -84,6 +87,47 @@ test("authorization code flow sets access token aud to orders API resource when 
       ordersApiResource,
     );
     assert.equal(verified.payload.aud, ordersApiResource);
+  } finally {
+    await fastify.close();
+  }
+});
+
+test("authorization code flow sets access token aud to requested resource indicator", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const tokenStore = createTokenStore();
+  const fastify = await createServer(
+    defaultServerConfig,
+    authorizationCodeStore,
+    tokenStore,
+  );
+  const address = await fastify.listen({
+    host: "127.0.0.1",
+    port: 0,
+  });
+
+  try {
+    const authorizationResponse = await authorizeClient(address, {
+      resource: productsApiResource,
+    });
+    assert.equal(authorizationResponse.status, 302);
+
+    const redirectUrl = getRedirectUrl(authorizationResponse);
+    const code = redirectUrl.searchParams.get("code");
+    assert.notEqual(code, null);
+
+    const tokenResponse = await fetchTokenEndpoint(address, code);
+    assert.equal(tokenResponse.status, 200);
+
+    const tokenResponseBody = (await tokenResponse.json()) as {
+      access_token: string;
+    };
+
+    const verified = await verifyAccessToken(
+      address,
+      tokenResponseBody.access_token,
+      productsApiResource,
+    );
+    assert.equal(verified.payload.aud, productsApiResource);
   } finally {
     await fastify.close();
   }
@@ -224,9 +268,134 @@ test("authorization endpoint rejects unknown resource indicators", async functio
   }
 });
 
+test("authorization code flow filters scopes by allowed scopes for the requested resource", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const tokenStore = createTokenStore();
+  const fastify = await createServer(
+    defaultServerConfig,
+    authorizationCodeStore,
+    tokenStore,
+  );
+  const address = await fastify.listen({
+    host: "127.0.0.1",
+    port: 0,
+  });
+
+  try {
+    const authorizationResponse = await authorizeClient(address, {
+      resource: ordersApiResource,
+      scope: "openid orders:read calendar:read",
+    });
+    assert.equal(authorizationResponse.status, 302);
+
+    const redirectUrl = getRedirectUrl(authorizationResponse);
+    const code = redirectUrl.searchParams.get("code");
+    assert.notEqual(code, null);
+
+    const tokenResponse = await fetchTokenEndpoint(address, code);
+    assert.equal(tokenResponse.status, 200);
+
+    const tokenResponseBody = (await tokenResponse.json()) as {
+      scope?: string;
+    };
+
+    assert.equal(tokenResponseBody.scope, "openid orders:read");
+  } finally {
+    await fastify.close();
+  }
+});
+
+test("OIDC scopes are not filtered by user or resource scope filtering", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const tokenStore = createTokenStore();
+  const fastify = await createServer(
+    defaultServerConfig,
+    authorizationCodeStore,
+    tokenStore,
+  );
+  const address = await fastify.listen({
+    host: "127.0.0.1",
+    port: 0,
+  });
+
+  try {
+    const authorizationResponse = await authorizeClient(address, {
+      resource: productsApiResource,
+      scope: "openid profile email orders:read",
+    });
+    assert.equal(authorizationResponse.status, 302);
+
+    const redirectUrl = getRedirectUrl(authorizationResponse);
+    const code = redirectUrl.searchParams.get("code");
+    assert.notEqual(code, null);
+
+    const tokenResponse = await fetchTokenEndpoint(address, code);
+    assert.equal(tokenResponse.status, 200);
+
+    const tokenResponseBody = (await tokenResponse.json()) as {
+      scope?: string;
+    };
+
+    assert.equal(tokenResponseBody.scope, "openid profile email");
+  } finally {
+    await fastify.close();
+  }
+});
+
+test("authorization code flow keeps scopes allowed by the requested resource and user", async function () {
+  const authorizationCodeStore = createAuthorizationCodeStore();
+  const tokenStore = createTokenStore();
+  const fastify = await createServer(
+    defaultServerConfig,
+    authorizationCodeStore,
+    tokenStore,
+  );
+  const address = await fastify.listen({
+    host: "127.0.0.1",
+    port: 0,
+  });
+
+  try {
+    const authorizationResponse = await authorizeClient(
+      address,
+      {
+        resource: productsApiResource,
+        scope: "openid products:read orders:read",
+      },
+      {
+        username: "admin",
+        password: "password",
+      },
+    );
+    assert.equal(authorizationResponse.status, 302);
+
+    const redirectUrl = getRedirectUrl(authorizationResponse);
+    const code = redirectUrl.searchParams.get("code");
+    assert.notEqual(code, null);
+
+    const tokenResponse = await fetchTokenEndpoint(address, code);
+    assert.equal(tokenResponse.status, 200);
+
+    const tokenResponseBody = (await tokenResponse.json()) as {
+      scope?: string;
+    };
+
+    assert.equal(tokenResponseBody.scope, "openid products:read");
+  } finally {
+    await fastify.close();
+  }
+});
+
 async function authorizeClient(
   address: string,
   authorizationRequest: Record<string, string> = {},
+  credentials: {
+    username: string;
+    password: string;
+  } = {
+    username: "user",
+    password: "password",
+  },
 ) {
   const loginPageResponse = await fetchAuthorizationRequest(
     address,
@@ -239,8 +408,8 @@ async function authorizeClient(
   const requestParams = getAuthorizationRequestParams(authorizationRequest);
   const loginRequestBody = new URLSearchParams({
     ...requestParams,
-    username: "user",
-    password: "password",
+    username: credentials.username,
+    password: credentials.password,
   }).toString();
 
   return await fetch(`${address}${authorizationPath}`, {
@@ -289,7 +458,10 @@ async function fetchTokenEndpoint(address: string, code: string) {
   });
 }
 
-async function fetchRefreshTokenEndpoint(address: string, refreshToken: string) {
+async function fetchRefreshTokenEndpoint(
+  address: string,
+  refreshToken: string,
+) {
   const tokenPath = new URL(defaultServerConfig.tokenEndpoint).pathname;
   const requestBody = new URLSearchParams({
     grant_type: "refresh_token",

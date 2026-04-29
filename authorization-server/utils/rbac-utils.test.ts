@@ -11,6 +11,13 @@ test("getAllowedScopesForUser returns scopes for assigned roles", function () {
   );
 });
 
+test("getAllowedScopesForUser returns products scope for admin role", function () {
+  assert.deepEqual(
+    getAllowedScopesForUser(createUserRecord({ roles: ["admin"] })),
+    ["orders:read", "orders:read:any", "products:read"],
+  );
+});
+
 test("getAllowedScopesForUser merges role scopes with user allowed scopes", function () {
   assert.deepEqual(
     getAllowedScopesForUser(
@@ -31,7 +38,7 @@ test("getAllowedScopesForUser deduplicates scopes", function () {
         allowedScopes: ["orders:read:any"],
       }),
     ),
-    ["orders:read", "orders:read:any"],
+    ["orders:read", "orders:read:any", "products:read"],
   );
 });
 

@@ -8,7 +8,8 @@ import {
   type MockAuthServer,
 } from "../test-utils/mock-auth-server.ts";
 
-const resourceId = "https://orders-api.example.test";
+const ordersApiResourceId = "https://orders-api.example.test";
+const productsApiResourceId = "https://products-api.example.test";
 
 test("GET /orders returns orders for the authenticated user from the order store", async () => {
   const authServer = await createMockAuthServer();
@@ -18,7 +19,7 @@ test("GET /orders returns orders for the authenticated user from the order store
     const token = await authServer.createAccessToken({
       sub: testUserId,
       scope: "orders:read",
-      aud: resourceId,
+      aud: ordersApiResourceId,
     });
 
     const response = await resourceServer.inject({
@@ -57,7 +58,7 @@ test("GET /orders returns all orders when the access token includes orders:read:
     const token = await authServer.createAccessToken({
       sub: adminUserId,
       scope: "orders:read:any",
-      aud: resourceId,
+      aud: ordersApiResourceId,
     });
 
     const response = await resourceServer.inject({
@@ -94,7 +95,7 @@ test("GET /orders/:id returns an individual order when it is owned by the authen
     const token = await authServer.createAccessToken({
       sub: testUserId,
       scope: "orders:read",
-      aud: resourceId,
+      aud: ordersApiResourceId,
     });
 
     const response = await resourceServer.inject({
@@ -123,7 +124,7 @@ test("GET /orders/:id returns another user's order when the access token include
     const token = await authServer.createAccessToken({
       sub: adminUserId,
       scope: "orders:read:any",
-      aud: resourceId,
+      aud: ordersApiResourceId,
     });
 
     const response = await resourceServer.inject({
@@ -152,7 +153,7 @@ test("GET /orders/:id returns 403 when the order is owned by a different user", 
     const token = await authServer.createAccessToken({
       sub: testUserId,
       scope: "orders:read",
-      aud: resourceId,
+      aud: ordersApiResourceId,
     });
 
     const response = await resourceServer.inject({
@@ -179,7 +180,7 @@ test("GET /orders/:id returns 404 when no order with the given id exists", async
     const token = await authServer.createAccessToken({
       sub: testUserId,
       scope: "orders:read",
-      aud: resourceId,
+      aud: ordersApiResourceId,
     });
 
     const response = await resourceServer.inject({
@@ -206,7 +207,7 @@ test("GET /orders returns 403 when the access token does not include orders:read
     const token = await authServer.createAccessToken({
       sub: testUserId,
       scope: "openid profile",
-      aud: resourceId,
+      aud: ordersApiResourceId,
     });
 
     const response = await resourceServer.inject({
@@ -237,7 +238,7 @@ test("GET /orders/:id returns 403 when the access token does not include orders:
     const token = await authServer.createAccessToken({
       sub: janeUserId,
       scope: "openid profile",
-      aud: resourceId,
+      aud: ordersApiResourceId,
     });
 
     const response = await resourceServer.inject({
@@ -447,7 +448,10 @@ test("GET /orders rejects expired tokens", async () => {
 
 function createTestResourceServer(authServer: MockAuthServer) {
   return createServer({
-    resourceId,
+    resourceIds: {
+      ordersApi: ordersApiResourceId,
+      productsApi: productsApiResourceId,
+    },
     acceptedAccessTokenAlgorithms: ["RS256"],
     authServerBase: authServer.authServerBase,
     issuer: authServer.issuer,
