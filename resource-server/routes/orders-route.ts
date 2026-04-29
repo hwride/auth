@@ -1,5 +1,8 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
-import { authenticateAccessToken } from "../utils/access-token-auth.ts";
+import {
+  type AccessTokenVerificationConfig,
+  authenticateAccessToken,
+} from "../utils/access-token-auth.ts";
 import { hasScope } from "../utils/has-scope.ts";
 import type { ResourceServerConfig } from "../config.ts";
 import type { OrderStore } from "../stores/order-store.ts";
@@ -9,11 +12,18 @@ export function registerOrdersRoute(
   serverConfig: ResourceServerConfig,
   orderStore: OrderStore,
 ) {
+  const verificationConfig: AccessTokenVerificationConfig = {
+    resourceId: serverConfig.resourceIds.ordersApi,
+    acceptedAccessTokenAlgorithms: serverConfig.acceptedAccessTokenAlgorithms,
+    issuer: serverConfig.issuer,
+    jwksUri: serverConfig.jwksUri,
+  };
+
   fastify.get("/orders", async (request, reply) => {
     const authenticatedUser = await authenticateAccessToken(
       request,
       reply,
-      serverConfig,
+      verificationConfig,
     );
 
     // If user is undefined, the error response will have been handled by the util.
@@ -46,7 +56,7 @@ export function registerOrdersRoute(
     const authenticatedUser = await authenticateAccessToken(
       request,
       reply,
-      serverConfig,
+      verificationConfig,
     );
 
     if (!authenticatedUser) {

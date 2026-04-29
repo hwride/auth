@@ -19,6 +19,8 @@ Some potential things that could be added to this auth server.
 - [ ] Dynamic client registration https://datatracker.ietf.org/doc/html/rfc7591
 - [ ] Auth server session
 - [ ] Make auth server state be stored server side rather than shared by query params between sign in/sign up.
+- [ ] Support multiple resource indicators in a single request
+- [x] Auth server filtering of scopes per provided resource
 - [x] RBAC
 - [x] Resource indicators https://datatracker.ietf.org/doc/html/rfc8707
 - [x] Change from username to user ID
@@ -43,13 +45,13 @@ Some potential things that could be added to this auth server.
 ## Client
 
 - [ ] Session to remember state/tokens
-- [ ] Call to protected resource with access token
 - [ ] Look at https://datatracker.ietf.org/doc/html/rfc9068 JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens
-- [ ] Actually use refresh tokens
 - [ ] Add client credentials flow
 - [ ] Maybe other flows?
+- [x] Call to protected resource with access token
+- [x] Use refresh tokens
 
 ## Resource server
 
-- [ ] Validate `aud` (audience) claim on incoming access tokens for `/orders`.
 - [ ] Make sure JWKS cache expires properly.
+- [x] Validate `aud` (audience) claim on incoming access tokens for `/orders`.

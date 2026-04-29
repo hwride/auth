@@ -1,6 +1,9 @@
 export type ResourceServerConfig = {
-  /** The ID of this resource server, as used in RFC 8707 */
-  resourceId: string;
+  /** Resource IDs this server accepts, as used in RFC 8707 */
+  resourceIds: {
+    ordersApi: string;
+    productsApi: string;
+  };
   acceptedAccessTokenAlgorithms: string[];
   authServerBase: string;
   issuer: string;
@@ -39,7 +42,10 @@ export async function getResourceServerConfig(): Promise<ResourceServerConfig> {
   }
 
   return {
-    resourceId: "https://orders-api.example.test",
+    resourceIds: {
+      ordersApi: "https://orders-api.example.test",
+      productsApi: "https://products-api.example.test",
+    },
     acceptedAccessTokenAlgorithms: ["RS256"],
     authServerBase,
     issuer: metadata.issuer,
